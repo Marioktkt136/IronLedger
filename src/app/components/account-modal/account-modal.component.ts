@@ -74,6 +74,22 @@ import {BLUEPRINT_LIMITS, FitnessGoal, LanguageCode, ThemeMode, WeightUnit} from
                   </button>
                 </div>
               </div>
+              @if (store.authError()) {
+                <div class="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-800 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-200">
+                  <p class="font-medium">{{ store.authError() }}</p>
+                  @if (store.authPopupBlocked() && store.isInsideIframe() && store.currentAppUrl()) {
+                    <a
+                      [href]="store.currentAppUrl()"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="mt-2 inline-flex items-center gap-1.5 rounded-md border border-red-300 bg-white px-2.5 py-1 font-semibold text-red-800 hover:bg-red-100 dark:border-red-800 dark:bg-zinc-900 dark:text-red-200"
+                    >
+                      <span class="material-icons text-sm" aria-hidden="true">open_in_new</span>
+                      <span>{{ i18n.t().authOpenInNewTab }}</span>
+                    </a>
+                  }
+                </div>
+              }
             } @else {
               <div class="rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-950/60">
                 <p class="text-sm text-zinc-600 dark:text-zinc-400">
@@ -416,7 +432,9 @@ export class AccountModalComponent {
 
   async onSwitchAccount(): Promise<void> {
     await this.store.switchAccount();
-    this.closed.emit();
+    if (!this.store.authError()) {
+      this.closed.emit();
+    }
   }
 
   async onSignOut(): Promise<void> {

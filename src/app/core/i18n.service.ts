@@ -72,6 +72,12 @@ export interface Translations {
   loginCheckingSession: string;
   switchAccountBtn: string;
   isolatedAccountHint: string;
+  authPopupBlockedTitle: string;
+  authPopupBlockedIframeDesc: string;
+  authPopupBlockedRetry: string;
+  authOpenInNewTab: string;
+  authTryRedirectBtn: string;
+  authPopupClosed: string;
 
   // Dashboard
   dashTitle: string;
@@ -310,6 +316,12 @@ const EN_DICT: Translations = {
   loginCheckingSession: 'Checking active account session...',
   switchAccountBtn: 'Switch Account',
   isolatedAccountHint: 'Isolated database active for this account',
+  authPopupBlockedTitle: 'Sign-in popup was blocked by your browser',
+  authPopupBlockedIframeDesc: 'Allow popups for this site and click Retry, or open the app in a full browser tab to sign in with Google.',
+  authPopupBlockedRetry: 'Retry Sign-In',
+  authOpenInNewTab: 'Open in Full Tab',
+  authTryRedirectBtn: 'Sign in via Redirect',
+  authPopupClosed: 'Google sign-in window was closed before completing login.',
 
   dashTitle: 'Performance Dashboard',
   dashSubtitle: 'Track training load, body composition trends, and saved progress reports.',
@@ -566,6 +578,12 @@ const AR_DICT: Translations = {
   loginCheckingSession: 'جارٍ التحقق من الجلسة النشطة...',
   switchAccountBtn: 'تبديل الحساب',
   isolatedAccountHint: 'قاعدة البيانات المعزولة نشطة لهذا الحساب',
+  authPopupBlockedTitle: 'قام المتصفح بحظر نافذة تسجيل الدخول المنبثقة',
+  authPopupBlockedIframeDesc: 'اسمح بالنوافذ المنبثقة لهذا الموقع ثم أعد المحاولة، أو افتح التطبيق في علامة تبويب كاملة لتسجيل الدخول عبر Google.',
+  authPopupBlockedRetry: 'إعادة المحاولة',
+  authOpenInNewTab: 'فتح في نافذة كاملة',
+  authTryRedirectBtn: 'الدخول عبر إعادة التوجيه',
+  authPopupClosed: 'تم إغلاق نافذة تسجيل الدخول قبل إتمام العملية.',
 
   dashTitle: 'لوحة تحليلات الأداء',
   dashSubtitle: 'تتبّع أحمال التدريب وتغيّرات الوزن وتقارير التقدم المحفوظة.',

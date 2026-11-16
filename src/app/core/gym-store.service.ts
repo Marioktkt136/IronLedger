@@ -76,6 +76,9 @@ export class GymStoreService {
   readonly authReady = signal(false);
   readonly authBusy = signal(false);
   readonly authError = signal<string | null>(null);
+  readonly authPopupBlocked = signal(false);
+  readonly isInsideIframe = signal(false);
+  readonly currentAppUrl = signal('');
   readonly isOnline = signal(true);
   readonly offlineModeEnabled = signal(false);
   readonly hasPendingCloudWrites = signal(false);
@@ -157,6 +160,13 @@ export class GymStoreService {
         this.isOnline.set(false);
       });
 
+      try {
+        this.isInsideIframe.set(window.self !== window.top);
+      } catch {
+        this.isInsideIframe.set(true);
+      }
+      this.currentAppUrl.set(window.location.href);
+
       this.purgeLegacyGlobalStorage();
       this.resetInMemoryDomainState();
       void this.initFirebase();
@@ -223,6 +233,16 @@ export class GymStoreService {
           }
 
           await this.activateUserSession(firebaseUser, seq);
+        },
+        onRedirectSignIn: async (redirectUser: AuthUserSummary) => {
+          this.user.set(redirectUser);
+          this.authReady.set(true);
+          this.authPopupBlocked.set(false);
+          this.authError.set(null);
+          if (this.activeUid !== redirectUser.uid) {
+            await this.activateUserSession(redirectUser, ++this.authSeq);
+          }
+          this.showLoginView.set(false);
         },
         onSyncMeta: (hasPending: boolean, fromCache: boolean) => {
           this.hasPendingCloudWrites.set(hasPending);
@@ -415,6 +435,7 @@ export class GymStoreService {
     if (!this.adapter) return;
     this.authBusy.set(true);
     this.authError.set(null);
+    this.authPopupBlocked.set(false);
     try {
       const signedInUser = await this.adapter.signInWithGoogle();
       if (signedInUser) {
@@ -425,8 +446,38 @@ export class GymStoreService {
         this.showLoginView.set(false);
       }
     } catch (err) {
-      this.authError.set(err instanceof Error ? err.message : 'Sign-in failed');
+      const msg = err instanceof Error ? err.message : String(err);
+      const code =
+        typeof err === 'object' && err !== null && 'code' in err
+          ? String((err as {code?: unknown}).code ?? '')
+          : '';
+
+      if (msg === 'AUTH_POPUP_BLOCKED_IFRAME' || code === 'auth/popup-blocked') {
+        this.authPopupBlocked.set(true);
+        this.authError.set(this.i18n.t().authPopupBlockedIframeDesc);
+      } else if (
+        msg === 'AUTH_POPUP_CLOSED' ||
+        code === 'auth/popup-closed-by-user' ||
+        code === 'auth/cancelled-popup-request'
+      ) {
+        this.authError.set(this.i18n.t().authPopupClosed);
+      } else {
+        this.authError.set(msg || 'Sign-in failed');
+      }
     } finally {
+      this.authBusy.set(false);
+    }
+  }
+
+  async signInWithRedirectFallback(): Promise<void> {
+    if (!this.adapter) return;
+    this.authBusy.set(true);
+    this.authError.set(null);
+    this.authPopupBlocked.set(false);
+    try {
+      await this.adapter.signInWithRedirectFlow();
+    } catch (err) {
+      this.authError.set(err instanceof Error ? err.message : 'Sign-in failed');
       this.authBusy.set(false);
     }
   }

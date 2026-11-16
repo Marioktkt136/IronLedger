@@ -71,9 +71,49 @@ import {ThemeService} from '../../core/theme.service';
           @if (store.authError()) {
             <div
               role="alert"
-              class="mt-4 rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-xs font-medium text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300"
+              class="mt-4 rounded-xl border border-red-200 bg-red-50 p-3.5 text-xs text-red-800 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-200"
             >
-              {{ store.authError() }}
+              @if (store.authPopupBlocked()) {
+                <p class="font-semibold">{{ i18n.t().authPopupBlockedTitle }}</p>
+                <p class="mt-1 leading-relaxed text-red-700 dark:text-red-300">
+                  {{ store.authError() }}
+                </p>
+                <div class="mt-3 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    (click)="store.signInWithGoogle()"
+                    [disabled]="store.authBusy()"
+                    class="inline-flex items-center gap-1.5 rounded-lg bg-red-700 px-3 py-1.5 font-semibold text-white hover:bg-red-800 disabled:opacity-60 dark:bg-red-600 dark:hover:bg-red-700"
+                  >
+                    <span class="material-icons text-sm" aria-hidden="true">refresh</span>
+                    <span>{{ i18n.t().authPopupBlockedRetry }}</span>
+                  </button>
+
+                  @if (store.isInsideIframe() && store.currentAppUrl()) {
+                    <a
+                      [href]="store.currentAppUrl()"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-white px-3 py-1.5 font-semibold text-red-800 hover:bg-red-100 dark:border-red-800 dark:bg-zinc-900 dark:text-red-200 dark:hover:bg-red-950/60"
+                    >
+                      <span class="material-icons text-sm" aria-hidden="true">open_in_new</span>
+                      <span>{{ i18n.t().authOpenInNewTab }}</span>
+                    </a>
+                  } @else {
+                    <button
+                      type="button"
+                      (click)="store.signInWithRedirectFallback()"
+                      [disabled]="store.authBusy()"
+                      class="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-white px-3 py-1.5 font-semibold text-red-800 hover:bg-red-100 disabled:opacity-60 dark:border-red-800 dark:bg-zinc-900 dark:text-red-200 dark:hover:bg-red-950/60"
+                    >
+                      <span class="material-icons text-sm" aria-hidden="true">login</span>
+                      <span>{{ i18n.t().authTryRedirectBtn }}</span>
+                    </button>
+                  }
+                </div>
+              } @else {
+                <p class="font-medium">{{ store.authError() }}</p>
+              }
             </div>
           }
 

@@ -1,8 +1,10 @@
 import {
   GoogleAuthProvider,
   User,
+  getRedirectResult,
   onAuthStateChanged,
   signInWithPopup,
+  signInWithRedirect,
   signOut as firebaseSignOut,
 } from 'firebase/auth';
 import {
@@ -44,6 +46,7 @@ export interface AuthUserSummary {
 
 export interface CloudSyncCallbacks {
   onAuthChange: (user: AuthUserSummary | null) => void;
+  onRedirectSignIn?: (user: AuthUserSummary) => void;
   onSyncMeta: (hasPendingWrites: boolean, fromCache: boolean) => void;
   onProfile: (prefs: UserPreferences) => void;
   onExercises: (list: ExerciseDefinition[]) => void;
@@ -62,6 +65,29 @@ function toUserSummary(user: User | null): AuthUserSummary | null {
   };
 }
 
+function createGoogleProvider(): GoogleAuthProvider {
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({prompt: 'select_account'});
+  return provider;
+}
+
+function getFirebaseErrorCode(err: unknown): string | undefined {
+  if (typeof err === 'object' && err !== null && 'code' in err) {
+    const code = (err as {code?: unknown}).code;
+    return typeof code === 'string' ? code : undefined;
+  }
+  return undefined;
+}
+
+function isTopLevelWindow(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.self === window.top;
+  } catch {
+    return false;
+  }
+}
+
 export class FirebaseSyncAdapter {
   private readonly clients = getFirebaseClients();
   private unsubAuth: Unsubscribe | null = null;
@@ -69,6 +95,20 @@ export class FirebaseSyncAdapter {
   private knownCloudIds = new Set<string>();
 
   startAuthListener(callbacks: CloudSyncCallbacks): void {
+    // Pre-warm Firebase Auth popup/redirect resolver on boot so click-time signInWithPopup
+    // opens immediately without awaiting internal resolver initialization, and resolve any
+    // pending redirect sign-in if the user returned from signInWithRedirect.
+    void getRedirectResult(this.clients.auth)
+      .then((result) => {
+        const user = toUserSummary(result?.user ?? null);
+        if (user && callbacks.onRedirectSignIn) {
+          callbacks.onRedirectSignIn(user);
+        }
+      })
+      .catch(() => {
+        // Ignore benign redirect resolution warnings on normal startup
+      });
+
     this.unsubAuth = onAuthStateChanged(this.clients.auth, (user) => {
       callbacks.onAuthChange(toUserSummary(user));
     });
@@ -95,10 +135,29 @@ export class FirebaseSyncAdapter {
   }
 
   async signInWithGoogle(): Promise<AuthUserSummary | null> {
-    const provider = new GoogleAuthProvider();
-    provider.setCustomParameters({prompt: 'select_account'});
-    const cred = await signInWithPopup(this.clients.auth, provider);
-    return toUserSummary(cred.user);
+    const provider = createGoogleProvider();
+    try {
+      const cred = await signInWithPopup(this.clients.auth, provider);
+      return toUserSummary(cred.user);
+    } catch (err) {
+      const code = getFirebaseErrorCode(err);
+      if (code === 'auth/popup-blocked') {
+        if (isTopLevelWindow()) {
+          await signInWithRedirect(this.clients.auth, provider);
+          return null;
+        }
+        throw new Error('AUTH_POPUP_BLOCKED_IFRAME');
+      }
+      if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+        throw new Error('AUTH_POPUP_CLOSED');
+      }
+      throw err;
+    }
+  }
+
+  async signInWithRedirectFlow(): Promise<void> {
+    const provider = createGoogleProvider();
+    await signInWithRedirect(this.clients.auth, provider);
   }
 
   async signOut(): Promise<void> {
