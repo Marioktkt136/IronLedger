@@ -1,17 +1,15 @@
 import {
-  GoogleAuthProvider,
   User,
   createUserWithEmailAndPassword,
-  getRedirectResult,
   onAuthStateChanged,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
-  signInWithPopup,
-  signInWithRedirect,
   signOut as firebaseSignOut,
   updateProfile,
 } from 'firebase/auth';
 import {
+  DocumentReference,
+  DocumentSnapshot,
   Unsubscribe,
   collection,
   deleteDoc,
@@ -20,24 +18,27 @@ import {
   doc,
   enableNetwork,
   getDoc,
+  getDocFromServer,
   getDocs,
   onSnapshot,
+  query,
   serverTimestamp,
   setDoc,
   where,
   writeBatch,
-  query,
 } from 'firebase/firestore';
 import {OperationType, getFirebaseClients, handleFirestoreError} from './firebase-client';
-import {roundTo} from './fitness-math';
+import {computeUserStatsSummary, hashAccountEmail, roundTo} from './fitness-math';
 import {
   BLUEPRINT_LIMITS,
   BodyMeasurement,
   ExerciseDefinition,
+  FitnessGoal,
   LanguageCode,
   ProgressReport,
   ThemeMode,
   UserPreferences,
+  WeightUnit,
   WorkoutRoutine,
   WorkoutSession,
 } from './models';
@@ -48,11 +49,21 @@ export interface AuthUserSummary {
   displayName: string | null;
 }
 
+export interface ViewOptionsState {
+  language: LanguageCode;
+  theme: ThemeMode;
+}
+
 export interface CloudSyncCallbacks {
   onAuthChange: (user: AuthUserSummary | null) => void;
-  onRedirectSignIn?: (user: AuthUserSummary) => void;
   onSyncMeta: (hasPendingWrites: boolean, fromCache: boolean) => void;
-  onProfile: (prefs: UserPreferences) => void;
+  onAccountRoot: (biometrics: {heightCm?: number; targetWeightKg?: number}) => void;
+  onSettings: (settings: {
+    goal: FitnessGoal;
+    preferredUnit: WeightUnit;
+    language: LanguageCode;
+    theme: ThemeMode;
+  }) => void;
   onExercises: (list: ExerciseDefinition[]) => void;
   onRoutines: (list: WorkoutRoutine[]) => void;
   onWorkouts: (list: WorkoutSession[]) => void;
@@ -69,27 +80,18 @@ function toUserSummary(user: User | null): AuthUserSummary | null {
   };
 }
 
-function createGoogleProvider(): GoogleAuthProvider {
-  const provider = new GoogleAuthProvider();
-  provider.setCustomParameters({prompt: 'select_account'});
-  return provider;
-}
-
-function getFirebaseErrorCode(err: unknown): string | undefined {
-  if (typeof err === 'object' && err !== null && 'code' in err) {
-    const code = (err as {code?: unknown}).code;
-    return typeof code === 'string' ? code : undefined;
-  }
-  return undefined;
-}
-
-function isTopLevelWindow(): boolean {
-  if (typeof window === 'undefined') return false;
-  try {
-    return window.self === window.top;
-  } catch {
-    return false;
-  }
+function isOfflineReadError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message.toLowerCase() : String(err).toLowerCase();
+  const code =
+    typeof err === 'object' && err !== null && 'code' in err
+      ? String((err as {code?: unknown}).code ?? '').toLowerCase()
+      : '';
+  return (
+    code === 'unavailable' ||
+    code === 'failed-precondition' ||
+    msg.includes('offline') ||
+    msg.includes('unavailable')
+  );
 }
 
 export class FirebaseSyncAdapter {
@@ -97,20 +99,9 @@ export class FirebaseSyncAdapter {
   private unsubAuth: Unsubscribe | null = null;
   private unsubCollections: Unsubscribe[] = [];
   private knownCloudIds = new Set<string>();
+  private appOptionsWriteQueue: Promise<void> = Promise.resolve();
 
   startAuthListener(callbacks: CloudSyncCallbacks): void {
-    // Pre-warm Firebase Auth popup/redirect resolver on boot and resolve any pending redirect login
-    void getRedirectResult(this.clients.auth)
-      .then((result) => {
-        const user = toUserSummary(result?.user ?? null);
-        if (user && callbacks.onRedirectSignIn) {
-          callbacks.onRedirectSignIn(user);
-        }
-      })
-      .catch(() => {
-        // Ignore benign redirect resolution warnings on normal startup
-      });
-
     this.unsubAuth = onAuthStateChanged(this.clients.auth, (user) => {
       callbacks.onAuthChange(toUserSummary(user));
     });
@@ -136,52 +127,217 @@ export class FirebaseSyncAdapter {
     this.knownCloudIds.clear();
   }
 
-  async signUpWithEmail(displayName: string, email: string, password: string): Promise<AuthUserSummary | null> {
+  private async getDocPreferServer(
+    ref: DocumentReference,
+    path: string,
+  ): Promise<DocumentSnapshot> {
+    try {
+      return await getDocFromServer(ref);
+    } catch (serverErr) {
+      if (isOfflineReadError(serverErr)) {
+        try {
+          return await getDoc(ref);
+        } catch (cacheErr) {
+          if (isOfflineReadError(cacheErr)) {
+            throw new Error('AUTH_DB_UNAVAILABLE');
+          }
+          handleFirestoreError(cacheErr, OperationType.GET, path, this.clients.auth);
+        }
+      }
+      handleFirestoreError(serverErr, OperationType.GET, path, this.clients.auth);
+    }
+  }
+
+  async loadAppOptions(clientId: string): Promise<ViewOptionsState | null> {
+    const path = `appOptions/${clientId}`;
+    const ref = doc(this.clients.db, path);
+    try {
+      let snap: DocumentSnapshot;
+      try {
+        snap = await getDocFromServer(ref);
+      } catch (serverErr) {
+        if (!isOfflineReadError(serverErr)) {
+          handleFirestoreError(serverErr, OperationType.GET, path, this.clients.auth);
+        }
+        snap = await getDoc(ref);
+      }
+      if (!snap.exists()) {
+        return null;
+      }
+      this.knownCloudIds.add(path);
+      const d = snap.data();
+      return {
+        language: d['language'] === 'ar' ? 'ar' : 'en',
+        theme: d['theme'] === 'dark' ? 'dark' : 'light',
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  saveAppOptions(clientId: string, opts: ViewOptionsState): Promise<void> {
+    const task = this.appOptionsWriteQueue.then(async () => {
+      const path = `appOptions/${clientId}`;
+      const ref = doc(this.clients.db, path);
+      try {
+        let exists = this.knownCloudIds.has(path);
+        if (!exists) {
+          try {
+            const snap = await getDocFromServer(ref);
+            exists = snap.exists();
+          } catch (serverErr) {
+            if (!isOfflineReadError(serverErr)) {
+              handleFirestoreError(serverErr, OperationType.GET, path, this.clients.auth);
+            }
+            const cacheSnap = await getDoc(ref);
+            exists = cacheSnap.exists();
+          }
+        }
+        if (exists) {
+          await setDoc(
+            ref,
+            {
+              language: opts.language,
+              theme: opts.theme,
+              updatedAt: serverTimestamp(),
+            },
+            {merge: true},
+          );
+        } else {
+          await setDoc(ref, {
+            clientId,
+            language: opts.language,
+            theme: opts.theme,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
+        }
+        this.knownCloudIds.add(path);
+      } catch (error) {
+        if (!isOfflineReadError(error)) {
+          handleFirestoreError(error, OperationType.WRITE, path, this.clients.auth);
+        }
+      }
+    });
+    this.appOptionsWriteQueue = task.catch(() => undefined);
+    return task;
+  }
+
+  async signUpWithEmail(
+    displayName: string,
+    email: string,
+    password: string,
+    uiPrefs: ViewOptionsState,
+  ): Promise<AuthUserSummary | null> {
+    const {auth, db} = this.clients;
     const cleanName = displayName.trim().slice(0, 120);
-    const cred = await createUserWithEmailAndPassword(this.clients.auth, email.trim(), password);
+    const cleanEmail = email.trim();
+    const emailHash = hashAccountEmail(cleanEmail);
+
+    const cred = await createUserWithEmailAndPassword(auth, cleanEmail, password);
     if (cleanName) {
       await updateProfile(cred.user, {displayName: cleanName});
     }
+
+    const uid = cred.user.uid;
+    const batch = writeBatch(db);
+    batch.set(doc(db, 'accountIndex', emailHash), {
+      ownerId: uid,
+      status: 'active',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    batch.set(doc(db, 'users', uid), {
+      ownerId: uid,
+      status: 'active',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
+    const safeEmail = (cleanEmail || 'athlete@ironledger.app').slice(0, 254);
+    const safeName = (cleanName || 'Athlete').slice(0, 120);
+    batch.set(doc(db, 'users', uid, 'private', 'info'), {
+      ownerId: uid,
+      email: safeEmail.length >= 3 ? safeEmail : 'athlete@ironledger.app',
+      displayName: safeName,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    batch.set(doc(db, 'users', uid, 'settings', 'preferences'), {
+      ownerId: uid,
+      goal: 'hypertrophy',
+      preferredUnit: 'kg',
+      language: uiPrefs.language,
+      theme: uiPrefs.theme,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    batch.set(doc(db, 'users', uid, 'stats', 'summary'), {
+      ownerId: uid,
+      totalWorkouts: 0,
+      totalVolumeKg: 0,
+      totalCompletedSets: 0,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
+    try {
+      await batch.commit();
+      this.knownCloudIds.add('settings/preferences');
+      this.knownCloudIds.add('stats/summary');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `users/${uid}`, auth);
+    }
+
     return {
-      uid: cred.user.uid,
+      uid,
       email: cred.user.email,
       displayName: cleanName || cred.user.displayName,
     };
   }
 
   async signInWithEmail(email: string, password: string): Promise<AuthUserSummary | null> {
-    const cred = await signInWithEmailAndPassword(this.clients.auth, email.trim(), password);
+    const {auth, db} = this.clients;
+    const cleanEmail = email.trim();
+    const emailHash = hashAccountEmail(cleanEmail);
+    const indexPath = `accountIndex/${emailHash}`;
+
+    // 1. Pre-login database verification: confirm account exists in Firestore BEFORE logging in
+    const indexSnap = await this.getDocPreferServer(doc(db, indexPath), indexPath);
+    if (!indexSnap.exists()) {
+      throw new Error('AUTH_NOT_IN_DATABASE');
+    }
+
+    // 2. Authenticate credentials via Firebase Auth
+    const cred = await signInWithEmailAndPassword(auth, cleanEmail, password);
+
+    // 3. Post-auth database verification: confirm user profile document exists in Firestore
+    const uid = cred.user.uid;
+    const profilePath = `users/${uid}`;
+    const profileSnap = await this.getDocPreferServer(doc(db, profilePath), profilePath);
+    if (!profileSnap.exists()) {
+      await firebaseSignOut(auth);
+      throw new Error('AUTH_NOT_IN_DATABASE');
+    }
+
     return toUserSummary(cred.user);
   }
 
+  async verifyUserExistsInDatabase(uid: string): Promise<boolean> {
+    const path = `users/${uid}`;
+    const snap = await this.getDocPreferServer(doc(this.clients.db, path), path);
+    return snap.exists();
+  }
+
   async sendPasswordReset(email: string): Promise<void> {
-    await sendPasswordResetEmail(this.clients.auth, email.trim());
-  }
-
-  async signInWithGoogle(): Promise<AuthUserSummary | null> {
-    const provider = createGoogleProvider();
-    try {
-      const cred = await signInWithPopup(this.clients.auth, provider);
-      return toUserSummary(cred.user);
-    } catch (err) {
-      const code = getFirebaseErrorCode(err);
-      if (code === 'auth/popup-blocked') {
-        if (isTopLevelWindow()) {
-          await signInWithRedirect(this.clients.auth, provider);
-          return null;
-        }
-        throw new Error('AUTH_POPUP_BLOCKED_IFRAME');
-      }
-      if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
-        throw new Error('AUTH_POPUP_CLOSED');
-      }
-      throw err;
+    const cleanEmail = email.trim();
+    const emailHash = hashAccountEmail(cleanEmail);
+    const indexPath = `accountIndex/${emailHash}`;
+    const indexSnap = await this.getDocPreferServer(doc(this.clients.db, indexPath), indexPath);
+    if (!indexSnap.exists()) {
+      throw new Error('AUTH_NOT_IN_DATABASE');
     }
-  }
-
-  async signInWithRedirectFlow(): Promise<void> {
-    const provider = createGoogleProvider();
-    await signInWithRedirect(this.clients.auth, provider);
+    await sendPasswordResetEmail(this.clients.auth, cleanEmail);
   }
 
   async signOut(): Promise<void> {
@@ -197,78 +353,62 @@ export class FirebaseSyncAdapter {
     }
   }
 
-  async ensureCloudBootstrap(
-    user: AuthUserSummary,
-    uiPrefs: {
-      language: LanguageCode;
-      theme: ThemeMode;
-    },
-  ): Promise<'created' | 'existing'> {
-    const {db, auth} = this.clients;
-    const uid = user.uid;
-    const profileRef = doc(db, 'users', uid);
-    const privateRef = doc(db, 'users', uid, 'private', 'info');
-
-    try {
-      const existingProfile = await getDoc(profileRef);
-      if (existingProfile.exists()) {
-        return 'existing';
-      }
-
-      // Reset all data at the start when creating a brand-new account:
-      // initialize empty profile (no heightCm/targetWeightKg) and no preloaded collections.
-      const batch = writeBatch(db);
-      batch.set(profileRef, {
-        ownerId: uid,
-        goal: 'hypertrophy',
-        preferredUnit: 'kg',
-        language: uiPrefs.language,
-        theme: uiPrefs.theme,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-
-      const safeEmail = (user.email?.trim() || 'athlete@ironledger.app').slice(0, 254);
-      const safeName = (user.displayName?.trim() || 'Athlete').slice(0, 120);
-      batch.set(privateRef, {
-        ownerId: uid,
-        email: safeEmail.length >= 3 ? safeEmail : 'athlete@ironledger.app',
-        displayName: safeName,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-
-      await batch.commit();
-      return 'created';
-    } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `users/${uid}`, auth);
-    }
-  }
-
   attachCollectionListeners(uid: string, callbacks: CloudSyncCallbacks): void {
     this.clearCollectionListeners();
     const {db, auth} = this.clients;
 
-    const profilePath = `users/${uid}`;
+    const rootPath = `users/${uid}`;
     this.unsubCollections.push(
       onSnapshot(
-        doc(db, profilePath),
+        doc(db, rootPath),
         {includeMetadataChanges: true},
         (snap) => {
           callbacks.onSyncMeta(snap.metadata.hasPendingWrites, snap.metadata.fromCache);
           if (snap.exists()) {
             const d = snap.data();
-            callbacks.onProfile({
-              goal: d['goal'] ?? 'hypertrophy',
-              preferredUnit: d['preferredUnit'] ?? 'kg',
-              language: d['language'] ?? 'en',
-              theme: d['theme'] ?? 'light',
+            callbacks.onAccountRoot({
               heightCm: typeof d['heightCm'] === 'number' ? d['heightCm'] : undefined,
               targetWeightKg: typeof d['targetWeightKg'] === 'number' ? d['targetWeightKg'] : undefined,
             });
           }
         },
-        (error) => handleFirestoreError(error, OperationType.GET, profilePath, auth),
+        (error) => handleFirestoreError(error, OperationType.GET, rootPath, auth),
+      ),
+    );
+
+    const settingsPath = `users/${uid}/settings/preferences`;
+    this.unsubCollections.push(
+      onSnapshot(
+        doc(db, settingsPath),
+        {includeMetadataChanges: true},
+        (snap) => {
+          callbacks.onSyncMeta(snap.metadata.hasPendingWrites, snap.metadata.fromCache);
+          if (snap.exists()) {
+            this.knownCloudIds.add('settings/preferences');
+            const d = snap.data();
+            callbacks.onSettings({
+              goal: (d['goal'] as FitnessGoal) ?? 'hypertrophy',
+              preferredUnit: d['preferredUnit'] === 'lbs' ? 'lbs' : 'kg',
+              language: d['language'] === 'ar' ? 'ar' : 'en',
+              theme: d['theme'] === 'dark' ? 'dark' : 'light',
+            });
+          }
+        },
+        (error) => handleFirestoreError(error, OperationType.GET, settingsPath, auth),
+      ),
+    );
+
+    const statsPath = `users/${uid}/stats/summary`;
+    this.unsubCollections.push(
+      onSnapshot(
+        doc(db, statsPath),
+        {includeMetadataChanges: true},
+        (snap) => {
+          if (snap.exists()) {
+            this.knownCloudIds.add('stats/summary');
+          }
+        },
+        (error) => handleFirestoreError(error, OperationType.GET, statsPath, auth),
       ),
     );
 
@@ -420,35 +560,111 @@ export class FirebaseSyncAdapter {
 
   async syncPreferences(uid: string, prefs: UserPreferences): Promise<void> {
     const {db, auth} = this.clients;
-    const ref = doc(db, 'users', uid);
+    const rootRef = doc(db, 'users', uid);
+    const settingsRef = doc(db, 'users', uid, 'settings', 'preferences');
+
     try {
-      const payload: Record<string, unknown> = {
-        ownerId: uid,
-        goal: prefs.goal,
-        preferredUnit: prefs.preferredUnit,
-        language: prefs.language,
-        theme: prefs.theme,
+      const batch = writeBatch(db);
+
+      const rootPayload: Record<string, unknown> = {
         updatedAt: serverTimestamp(),
       };
       if (prefs.heightCm !== undefined && Number.isFinite(prefs.heightCm)) {
-        payload['heightCm'] = roundTo(
+        rootPayload['heightCm'] = roundTo(
           Math.min(BLUEPRINT_LIMITS.heightMaxCm, Math.max(BLUEPRINT_LIMITS.heightMinCm, prefs.heightCm)),
           1,
         );
       } else {
-        payload['heightCm'] = deleteField();
+        rootPayload['heightCm'] = deleteField();
       }
       if (prefs.targetWeightKg !== undefined && Number.isFinite(prefs.targetWeightKg)) {
-        payload['targetWeightKg'] = roundTo(
+        rootPayload['targetWeightKg'] = roundTo(
           Math.min(BLUEPRINT_LIMITS.weightMaxKg, Math.max(BLUEPRINT_LIMITS.weightMinKg, prefs.targetWeightKg)),
           1,
         );
       } else {
-        payload['targetWeightKg'] = deleteField();
+        rootPayload['targetWeightKg'] = deleteField();
       }
-      await setDoc(ref, payload, {merge: true});
+      batch.set(rootRef, rootPayload, {merge: true});
+
+      let settingsExists = this.knownCloudIds.has('settings/preferences');
+      if (!settingsExists) {
+        const snap = await getDoc(settingsRef);
+        settingsExists = snap.exists();
+      }
+
+      if (settingsExists) {
+        batch.set(
+          settingsRef,
+          {
+            goal: prefs.goal,
+            preferredUnit: prefs.preferredUnit,
+            language: prefs.language,
+            theme: prefs.theme,
+            updatedAt: serverTimestamp(),
+          },
+          {merge: true},
+        );
+      } else {
+        batch.set(settingsRef, {
+          ownerId: uid,
+          goal: prefs.goal,
+          preferredUnit: prefs.preferredUnit,
+          language: prefs.language,
+          theme: prefs.theme,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+      }
+
+      await batch.commit();
+      this.knownCloudIds.add('settings/preferences');
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `users/${uid}`, auth);
+      handleFirestoreError(error, OperationType.WRITE, `users/${uid}/settings/preferences`, auth);
+    }
+  }
+
+  async syncStatsSummary(
+    uid: string,
+    workouts: WorkoutSession[],
+    measurements: BodyMeasurement[],
+  ): Promise<void> {
+    const {db, auth} = this.clients;
+    const statsPath = `users/${uid}/stats/summary`;
+    const statsRef = doc(db, statsPath);
+    const computed = computeUserStatsSummary(workouts, measurements);
+
+    try {
+      let exists = this.knownCloudIds.has('stats/summary');
+      if (!exists) {
+        const snap = await getDoc(statsRef);
+        exists = snap.exists();
+      }
+
+      const payload: Record<string, unknown> = {
+        totalWorkouts: computed.totalWorkouts,
+        totalVolumeKg: computed.totalVolumeKg,
+        totalCompletedSets: computed.totalCompletedSets,
+        updatedAt: serverTimestamp(),
+      };
+      if (computed.latestWeightKg !== undefined && computed.latestMeasurementDate) {
+        payload['latestWeightKg'] = computed.latestWeightKg;
+        payload['latestMeasurementDate'] = computed.latestMeasurementDate;
+      } else if (exists) {
+        payload['latestWeightKg'] = deleteField();
+        payload['latestMeasurementDate'] = deleteField();
+      }
+
+      if (!exists) {
+        payload['ownerId'] = uid;
+        payload['createdAt'] = serverTimestamp();
+        await setDoc(statsRef, payload);
+      } else {
+        await setDoc(statsRef, payload, {merge: true});
+      }
+      this.knownCloudIds.add('stats/summary');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, statsPath, auth);
     }
   }
 
@@ -524,34 +740,78 @@ export class FirebaseSyncAdapter {
   async clearCloudUserData(uid: string, prefs: UserPreferences): Promise<void> {
     const {db, auth} = this.clients;
     try {
-      const deleteBatch = writeBatch(db);
-      let hasDeletes = false;
+      const batch = writeBatch(db);
       for (const colName of ['exercises', 'routines', 'workouts', 'measurements', 'progressReports'] as const) {
         const snap = await getDocs(query(collection(db, 'users', uid, colName), where('ownerId', '==', uid)));
         for (const d of snap.docs) {
-          deleteBatch.delete(d.ref);
+          batch.delete(d.ref);
           this.knownCloudIds.delete(`${colName}/${d.id}`);
-          hasDeletes = true;
         }
       }
-      if (hasDeletes) {
-        await deleteBatch.commit();
-      }
 
-      await setDoc(
+      batch.set(
         doc(db, 'users', uid),
         {
-          ownerId: uid,
-          goal: prefs.goal,
-          preferredUnit: prefs.preferredUnit,
-          language: prefs.language,
-          theme: prefs.theme,
           heightCm: deleteField(),
           targetWeightKg: deleteField(),
           updatedAt: serverTimestamp(),
         },
         {merge: true},
       );
+
+      const settingsRef = doc(db, 'users', uid, 'settings', 'preferences');
+      if (this.knownCloudIds.has('settings/preferences')) {
+        batch.set(
+          settingsRef,
+          {
+            goal: prefs.goal,
+            preferredUnit: prefs.preferredUnit,
+            language: prefs.language,
+            theme: prefs.theme,
+            updatedAt: serverTimestamp(),
+          },
+          {merge: true},
+        );
+      } else {
+        batch.set(settingsRef, {
+          ownerId: uid,
+          goal: prefs.goal,
+          preferredUnit: prefs.preferredUnit,
+          language: prefs.language,
+          theme: prefs.theme,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+      }
+
+      const statsRef = doc(db, 'users', uid, 'stats', 'summary');
+      if (this.knownCloudIds.has('stats/summary')) {
+        batch.set(
+          statsRef,
+          {
+            totalWorkouts: 0,
+            totalVolumeKg: 0,
+            totalCompletedSets: 0,
+            latestWeightKg: deleteField(),
+            latestMeasurementDate: deleteField(),
+            updatedAt: serverTimestamp(),
+          },
+          {merge: true},
+        );
+      } else {
+        batch.set(statsRef, {
+          ownerId: uid,
+          totalWorkouts: 0,
+          totalVolumeKg: 0,
+          totalCompletedSets: 0,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+      }
+
+      await batch.commit();
+      this.knownCloudIds.add('settings/preferences');
+      this.knownCloudIds.add('stats/summary');
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `users/${uid}`, auth);
     }

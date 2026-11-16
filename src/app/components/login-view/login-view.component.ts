@@ -176,57 +176,17 @@ type AuthValidationKey =
               role="alert"
               class="mt-4 rounded-xl border border-red-200 bg-red-50 p-3.5 text-xs text-red-800 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-200"
             >
-              @if (store.authPopupBlocked() && !localValidationMessage()) {
-                <p class="font-semibold">{{ i18n.t().authPopupBlockedTitle }}</p>
-                <p class="mt-1 leading-relaxed text-red-700 dark:text-red-300">
-                  {{ store.authError() }}
-                </p>
-                <div class="mt-3 flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    (click)="store.signInWithGoogle()"
-                    [disabled]="store.authBusy()"
-                    class="inline-flex items-center gap-1.5 rounded-lg bg-red-700 px-3 py-1.5 font-semibold text-white hover:bg-red-800 disabled:opacity-60 dark:bg-red-600 dark:hover:bg-red-700"
-                  >
-                    <span class="material-icons text-sm" aria-hidden="true">refresh</span>
-                    <span>{{ i18n.t().authPopupBlockedRetry }}</span>
-                  </button>
-
-                  @if (store.isInsideIframe() && store.currentAppUrl()) {
-                    <a
-                      [href]="store.currentAppUrl()"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      class="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-white px-3 py-1.5 font-semibold text-red-800 hover:bg-red-100 dark:border-red-800 dark:bg-zinc-900 dark:text-red-200 dark:hover:bg-red-950/60"
-                    >
-                      <span class="material-icons text-sm" aria-hidden="true">open_in_new</span>
-                      <span>{{ i18n.t().authOpenInNewTab }}</span>
-                    </a>
-                  } @else {
-                    <button
-                      type="button"
-                      (click)="store.signInWithRedirectFallback()"
-                      [disabled]="store.authBusy()"
-                      class="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-white px-3 py-1.5 font-semibold text-red-800 hover:bg-red-100 disabled:opacity-60 dark:border-red-800 dark:bg-zinc-900 dark:text-red-200 dark:hover:bg-red-950/60"
-                    >
-                      <span class="material-icons text-sm" aria-hidden="true">login</span>
-                      <span>{{ i18n.t().authTryRedirectBtn }}</span>
-                    </button>
-                  }
-                </div>
-              } @else {
-                <p class="font-medium leading-relaxed">{{ localValidationMessage() || store.authError() }}</p>
-                @if (store.authProviderNeedsSetup() && !localValidationMessage()) {
-                  <a
-                    [href]="consoleProvidersUrl"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="mt-2.5 inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-white px-3 py-1.5 font-semibold text-red-800 hover:bg-red-100 dark:border-red-800 dark:bg-zinc-900 dark:text-red-200 dark:hover:bg-red-950/60"
-                  >
-                    <span class="material-icons text-sm" aria-hidden="true">open_in_new</span>
-                    <span>{{ i18n.t().loginConsoleProviderLink }}</span>
-                  </a>
-                }
+              <p class="font-medium leading-relaxed">{{ localValidationMessage() || store.authError() }}</p>
+              @if (store.authProviderNeedsSetup() && !localValidationMessage()) {
+                <a
+                  [href]="consoleProvidersUrl"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="mt-2.5 inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-white px-3 py-1.5 font-semibold text-red-800 hover:bg-red-100 dark:border-red-800 dark:bg-zinc-900 dark:text-red-200 dark:hover:bg-red-950/60"
+                >
+                  <span class="material-icons text-sm" aria-hidden="true">open_in_new</span>
+                  <span>{{ i18n.t().loginConsoleProviderLink }}</span>
+                </a>
               }
             </div>
           }
@@ -337,25 +297,6 @@ type AuthValidationKey =
             </button>
           </form>
 
-          <!-- Divider + Secondary Google Login -->
-          <div class="my-5 flex items-center gap-3">
-            <div class="h-px flex-1 bg-zinc-200 dark:bg-zinc-800"></div>
-            <span class="text-xs font-medium text-zinc-400 dark:text-zinc-500">
-              {{ i18n.t().loginOrDivider }}
-            </span>
-            <div class="h-px flex-1 bg-zinc-200 dark:bg-zinc-800"></div>
-          </div>
-
-          <button
-            type="button"
-            (click)="store.signInWithGoogle()"
-            [disabled]="store.authBusy() || !store.authReady()"
-            class="flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-xs font-semibold text-zinc-800 hover:bg-zinc-50 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-800"
-          >
-            <span class="material-icons text-base" aria-hidden="true">account_circle</span>
-            <span>{{ i18n.t().loginGoogleSecondary }}</span>
-          </button>
-
           <div class="mt-6 space-y-2.5 border-t border-zinc-200 pt-5 dark:border-zinc-800">
             <div class="flex items-start gap-2.5 text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
               <span class="material-icons mt-0.5 shrink-0 text-base text-zinc-500 dark:text-zinc-400" aria-hidden="true">lock</span>
@@ -453,11 +394,11 @@ export class LoginViewComponent {
 
   toggleLanguage(): void {
     const next = this.i18n.toggleLanguage();
-    void this.store.updatePreferences({language: next});
+    void this.store.saveViewOptions({language: next});
   }
 
   toggleTheme(): void {
     const next = this.theme.toggleTheme();
-    void this.store.updatePreferences({theme: next});
+    void this.store.saveViewOptions({theme: next});
   }
 }

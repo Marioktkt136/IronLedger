@@ -149,12 +149,12 @@ import {ThemeService} from '../../core/theme.service';
           <div class="mt-4 border-t border-zinc-200 pt-4 text-center dark:border-zinc-800">
             <button
               type="button"
-              (click)="store.signInWithGoogle()"
+              (click)="store.openLoginView()"
               [disabled]="store.authBusy()"
               class="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-600 hover:text-orange-600 dark:text-zinc-400 dark:hover:text-orange-400"
             >
-              <span class="material-icons text-sm" aria-hidden="true">cloud_upload</span>
-              {{ i18n.t().setupOrSignIn }}
+              <span class="material-icons text-sm" aria-hidden="true">login</span>
+              {{ i18n.t().setupOrOpenLogin }}
             </button>
           </div>
         }
@@ -200,12 +200,12 @@ export class BodySetupModalComponent {
 
   toggleLanguage(): void {
     const next = this.i18n.toggleLanguage();
-    void this.store.updatePreferences({language: next});
+    void this.store.saveViewOptions({language: next});
   }
 
   toggleTheme(): void {
     const next = this.theme.toggleTheme();
-    void this.store.updatePreferences({theme: next});
+    void this.store.saveViewOptions({theme: next});
   }
 
   async submit(): Promise<void> {

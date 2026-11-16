@@ -101,12 +101,12 @@ export class App {
 
   onToggleTheme(): void {
     const next = this.theme.toggleTheme();
-    void this.store.updatePreferences({theme: next});
+    void this.store.saveViewOptions({theme: next});
   }
 
   onToggleLanguage(): void {
     const next = this.i18n.toggleLanguage();
-    void this.store.updatePreferences({language: next});
+    void this.store.saveViewOptions({language: next});
   }
 
   startOrResumeWorkout(): void {

@@ -23,7 +23,6 @@ export interface Translations {
   startWorkout: string;
   resumeWorkout: string;
   accountAndSync: string;
-  signInGoogle: string;
   signOut: string;
   cloudSynced: string;
   syncingPending: string;
@@ -56,7 +55,7 @@ export interface Translations {
   setupGoalLabel: string;
   setupBmiPreview: string;
   setupSubmitBtn: string;
-  setupOrSignIn: string;
+  setupOrOpenLogin: string;
   heightLabel: string;
   bmiLabel: string;
 
@@ -64,7 +63,6 @@ export interface Translations {
   loginBadge: string;
   loginTitle: string;
   loginSubtitle: string;
-  loginEnterAccountBtn: string;
   loginContinueAs: string;
   loginUseAnotherAccount: string;
   loginIsolatedNote: string;
@@ -72,12 +70,6 @@ export interface Translations {
   loginCheckingSession: string;
   switchAccountBtn: string;
   isolatedAccountHint: string;
-  authPopupBlockedTitle: string;
-  authPopupBlockedIframeDesc: string;
-  authPopupBlockedRetry: string;
-  authOpenInNewTab: string;
-  authTryRedirectBtn: string;
-  authPopupClosed: string;
   loginTabSignIn: string;
   loginTabSignUp: string;
   loginNameLabel: string;
@@ -93,13 +85,13 @@ export interface Translations {
   loginSubmitSignUp: string;
   loginForgotPassword: string;
   loginResetSent: string;
-  loginOrDivider: string;
-  loginGoogleSecondary: string;
   loginConsoleProviderLink: string;
   val_auth_name: string;
   val_auth_email: string;
   val_auth_password: string;
   val_auth_password_mismatch: string;
+  err_auth_not_in_database: string;
+  err_auth_db_unavailable: string;
   err_auth_email_in_use: string;
   err_auth_invalid_credentials: string;
   err_auth_invalid_email: string;
@@ -298,7 +290,6 @@ const EN_DICT: Translations = {
   startWorkout: 'Start Workout',
   resumeWorkout: 'Resume Session',
   accountAndSync: 'Account & Sync',
-  signInGoogle: 'Sign in with Google',
   signOut: 'Sign Out',
   cloudSynced: 'Cloud Synced',
   syncingPending: 'Syncing pending changes',
@@ -329,27 +320,20 @@ const EN_DICT: Translations = {
   setupGoalLabel: 'Primary Fitness Goal',
   setupBmiPreview: 'Estimated BMI',
   setupSubmitBtn: 'Save & Continue',
-  setupOrSignIn: 'Already have cloud data? Sign in with Google',
+  setupOrOpenLogin: 'Back to Account Sign In',
   heightLabel: 'Height',
   bmiLabel: 'BMI',
 
   loginBadge: 'Isolated Account Database',
   loginTitle: 'Sign in or create your account',
-  loginSubtitle: 'Enter your email and password to open your isolated workouts, routines, and body metrics.',
-  loginEnterAccountBtn: 'Enter Specific Google Account',
+  loginSubtitle: 'Sign in with a verified database account or create a new isolated profile.',
   loginContinueAs: 'Continue as',
   loginUseAnotherAccount: 'Switch Account',
   loginIsolatedNote: 'Every account has its own strictly isolated cloud database and offline cache.',
   loginNewAccountNote: 'Creating a new account resets all data to empty and requests your height (cm) and weight (kg) first.',
-  loginCheckingSession: 'Checking active account session...',
+  loginCheckingSession: 'Verifying database account session...',
   switchAccountBtn: 'Switch Account',
   isolatedAccountHint: 'Isolated database active for this account',
-  authPopupBlockedTitle: 'Sign-in popup was blocked by your browser',
-  authPopupBlockedIframeDesc: 'Allow popups for this site and click Retry, or open the app in a full browser tab to sign in with Google.',
-  authPopupBlockedRetry: 'Retry Sign-In',
-  authOpenInNewTab: 'Open in Full Tab',
-  authTryRedirectBtn: 'Sign in via Redirect',
-  authPopupClosed: 'Google sign-in window was closed before completing login.',
   loginTabSignIn: 'Sign In',
   loginTabSignUp: 'Create Account',
   loginNameLabel: 'Full Name',
@@ -365,13 +349,13 @@ const EN_DICT: Translations = {
   loginSubmitSignUp: 'Create Account',
   loginForgotPassword: 'Forgot password?',
   loginResetSent: 'Password reset link sent to your email address.',
-  loginOrDivider: 'or',
-  loginGoogleSecondary: 'Continue with Google',
   loginConsoleProviderLink: 'Open Firebase Console Auth Providers',
   val_auth_name: 'Please enter your name (at least 2 characters).',
   val_auth_email: 'Please enter a valid email address.',
   val_auth_password: 'Password must be at least 6 characters.',
   val_auth_password_mismatch: 'Passwords do not match.',
+  err_auth_not_in_database: 'This account does not exist in the database. Please create an account first.',
+  err_auth_db_unavailable: 'Unable to verify your account in the database right now. Please check your internet connection.',
   err_auth_email_in_use: 'An account with this email already exists. Switch to Sign In.',
   err_auth_invalid_credentials: 'Incorrect email or password.',
   err_auth_invalid_email: 'Please enter a valid email address.',
@@ -514,7 +498,7 @@ const EN_DICT: Translations = {
   accountModalTitle: 'Account, Preferences & Offline Sync',
   cloudAccountSection: 'Cloud Account',
   signedInAs: 'Signed in as',
-  notSignedInDesc: 'Sign in with Google to back up workouts, routines, and body metrics securely to Cloud Firestore across devices.',
+  notSignedInDesc: 'Sign in with your email and password to back up workouts, routines, and body metrics securely in Cloud Firestore across devices.',
   preferencesSection: 'Profile & Training Preferences',
   fitnessGoalLabel: 'Primary Goal',
   preferredUnitLabel: 'Weight Unit',
@@ -588,7 +572,6 @@ const AR_DICT: Translations = {
   startWorkout: 'بدء تمرين',
   resumeWorkout: 'متابعة التمرين',
   accountAndSync: 'الحساب والمزامنة',
-  signInGoogle: 'تسجيل الدخول عبر Google',
   signOut: 'تسجيل الخروج',
   cloudSynced: 'متزامن سحابياً',
   syncingPending: 'جارٍ مزامنة التغييرات',
@@ -619,27 +602,20 @@ const AR_DICT: Translations = {
   setupGoalLabel: 'الهدف التدريبي الأساسي',
   setupBmiPreview: 'مؤشر كتلة الجسم التقديري (BMI)',
   setupSubmitBtn: 'حفظ والمتابعة',
-  setupOrSignIn: 'لديك بيانات سحابية محفوظة؟ سجّل الدخول عبر Google',
+  setupOrOpenLogin: 'العودة إلى صفحة تسجيل الدخول',
   heightLabel: 'الطول',
   bmiLabel: 'مؤشر الكتلة',
 
   loginBadge: 'قاعدة بيانات معزولة لكل حساب',
   loginTitle: 'تسجيل الدخول أو إنشاء حساب',
-  loginSubtitle: 'أدخل بريدك الإلكتروني وكلمة المرور لفتح تمارينك وبرامجك وقياسات جسمك المعزولة عن الآخرين.',
-  loginEnterAccountBtn: 'الدخول بحساب Google محدد',
+  loginSubtitle: 'سجّل الدخول بحسابك المسجّل في قاعدة البيانات أو أنشئ حساباً جديداً معزولاً.',
   loginContinueAs: 'المتابعة بحساب',
   loginUseAnotherAccount: 'تبديل الحساب',
   loginIsolatedNote: 'يمتلك كل حساب قاعدة بيانات سحابية وتخزيناً محلياً معزولاً تماماً عن الحسابات الأخرى.',
   loginNewAccountNote: 'عند إنشاء حساب جديد تُمسح البيانات وتبدأ فارغة تماماً مع طلب الطول (سم) والوزن (كجم) أولاً.',
-  loginCheckingSession: 'جارٍ التحقق من الجلسة النشطة...',
+  loginCheckingSession: 'جارٍ التحقق من الحساب في قاعدة البيانات...',
   switchAccountBtn: 'تبديل الحساب',
   isolatedAccountHint: 'قاعدة البيانات المعزولة نشطة لهذا الحساب',
-  authPopupBlockedTitle: 'قام المتصفح بحظر نافذة تسجيل الدخول المنبثقة',
-  authPopupBlockedIframeDesc: 'اسمح بالنوافذ المنبثقة لهذا الموقع ثم أعد المحاولة، أو افتح التطبيق في علامة تبويب كاملة لتسجيل الدخول عبر Google.',
-  authPopupBlockedRetry: 'إعادة المحاولة',
-  authOpenInNewTab: 'فتح في نافذة كاملة',
-  authTryRedirectBtn: 'الدخول عبر إعادة التوجيه',
-  authPopupClosed: 'تم إغلاق نافذة تسجيل الدخول قبل إتمام العملية.',
   loginTabSignIn: 'تسجيل الدخول',
   loginTabSignUp: 'إنشاء حساب',
   loginNameLabel: 'الاسم الكامل',
@@ -655,13 +631,13 @@ const AR_DICT: Translations = {
   loginSubmitSignUp: 'إنشاء حساب معزول',
   loginForgotPassword: 'نسيت كلمة المرور؟',
   loginResetSent: 'تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني.',
-  loginOrDivider: 'أو',
-  loginGoogleSecondary: 'المتابعة عبر Google',
   loginConsoleProviderLink: 'فتح إعدادات مزوّدي الدخول في Firebase Console',
   val_auth_name: 'يرجى إدخال الاسم (حرفين على الأقل).',
   val_auth_email: 'يرجى إدخال بريد إلكتروني صحيح.',
   val_auth_password: 'يجب أن تتكون كلمة المرور من ٦ أحرف على الأقل.',
   val_auth_password_mismatch: 'كلمتا المرور غير متطابقتين.',
+  err_auth_not_in_database: 'هذا الحساب غير موجود في قاعدة البيانات. يرجى إنشاء حساب أولاً.',
+  err_auth_db_unavailable: 'تعذّر التحقق من وجود الحساب في قاعدة البيانات حالياً. تأكد من اتصالك بالإنترنت.',
   err_auth_email_in_use: 'يوجد حساب مسجل بهذا البريد الإلكتروني بالفعل. انتقل إلى تسجيل الدخول.',
   err_auth_invalid_credentials: 'البريد الإلكتروني أو كلمة المرور غير صحيحة.',
   err_auth_invalid_email: 'يرجى إدخال بريد إلكتروني صحيح.',
@@ -804,7 +780,7 @@ const AR_DICT: Translations = {
   accountModalTitle: 'الحساب والتفضيلات والمزامنة',
   cloudAccountSection: 'الحساب السحابي',
   signedInAs: 'تم تسجيل الدخول بحساب',
-  notSignedInDesc: 'سجّل الدخول بحساب Google لحفظ تمارينك وبرامجك وقياساتك بأمان في السحابة عبر أجهزتك.',
+  notSignedInDesc: 'سجّل الدخول بالبريد الإلكتروني وكلمة المرور لحفظ تمارينك وبرامجك وقياساتك بأمان في السحابة عبر أجهزتك.',
   preferencesSection: 'الملف الشخصي وتفضيلات التدريب',
   fitnessGoalLabel: 'الهدف الأساسي',
   preferredUnitLabel: 'وحدة الوزن',

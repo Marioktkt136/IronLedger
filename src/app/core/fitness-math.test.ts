@@ -8,12 +8,15 @@ import {
   computeMuscleVolumeBreakdown,
   computePersonalRecords,
   computeProgressReportSummary,
+  computeUserStatsSummary,
   convertInputToKg,
   convertWeight,
   countCompletedSets,
   createCleanAccountSnapshot,
   filterByTimeframe,
   getScopedStorageKeys,
+  hashAccountEmail,
+  sha256Hex,
   validateExerciseInput,
   validateInitialBodySetup,
   validateMeasurementInput,
@@ -185,5 +188,49 @@ test('getScopedStorageKeys isolates each user account and createCleanAccountSnap
   assert.equal(fresh.measurements.length, 0);
   assert.equal(fresh.progressReports.length, 0);
 });
+
+test('hashAccountEmail normalizes whitespace/case and matches standard SHA-256 hex digest', () => {
+  assert.equal(sha256Hex('abc'), 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
+  assert.equal(hashAccountEmail('  Athlete@IronLedger.App '), hashAccountEmail('athlete@ironledger.app'));
+  assert.equal(hashAccountEmail('test@example.com').length, 64);
+});
+
+test('computeUserStatsSummary aggregates workouts and latest measurement cleanly', () => {
+  const summary = computeUserStatsSummary(
+    [
+      {
+        id: 'w1',
+        title: 'Push',
+        startedAtIso: '2026-11-10T10:00:00Z',
+        completedAtIso: '2026-11-10T10:45:00Z',
+        durationMinutes: 45,
+        totalVolumeKg: 2500.4,
+        completedSetsCount: 10,
+        entries: [],
+      },
+      {
+        id: 'w2',
+        title: 'Pull',
+        startedAtIso: '2026-11-12T10:00:00Z',
+        completedAtIso: '2026-11-12T10:50:00Z',
+        durationMinutes: 50,
+        totalVolumeKg: 3100.2,
+        completedSetsCount: 12,
+        entries: [],
+      },
+    ],
+    [
+      {id: 'm1', recordedDate: '2026-11-01', weightKg: 80.5},
+      {id: 'm2', recordedDate: '2026-11-15', weightKg: 79.2},
+    ],
+  );
+
+  assert.equal(summary.totalWorkouts, 2);
+  assert.equal(summary.totalVolumeKg, 5600.6);
+  assert.equal(summary.totalCompletedSets, 22);
+  assert.equal(summary.latestWeightKg, 79.2);
+  assert.equal(summary.latestMeasurementDate, '2026-11-15');
+});
+
 
 

@@ -19,6 +19,10 @@ service cloud.firestore {
       return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
+    function isValidEmailHash(hashId) {
+      return hashId is string && hashId.size() == 64 && hashId.matches('^[a-f0-9]{64}$');
+    }
+
     function incoming() {
       return request.resource.data;
     }
@@ -35,26 +39,46 @@ service cloud.firestore {
       return !(key in data) || (data[key] is string && data[key].size() <= maxLen);
     }
 
+    function isValidOptionalDate(data, key) {
+      return !(key in data) || (data[key] is string && data[key].size() == 10 && data[key].matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$'));
+    }
+
     function hasValidParentProfile(userId) {
       return existsAfter(/databases/$(database)/documents/users/$(userId))
         && getAfter(/databases/$(database)/documents/users/$(userId)).data.ownerId == request.auth.uid;
     }
 
     // Entity Validators
-    function isValidUserProfile(data, userId) {
-      return data.keys().hasAll(['ownerId', 'goal', 'preferredUnit', 'language', 'theme', 'createdAt', 'updatedAt'])
-        && data.keys().hasOnly(['ownerId', 'goal', 'preferredUnit', 'language', 'theme', 'heightCm', 'targetWeightKg', 'createdAt', 'updatedAt'])
-        && isValidId(data.ownerId)
-        && data.ownerId == userId
-        && data.ownerId == request.auth.uid
-        && data.goal is string && data.goal.size() <= 32
-        && data.goal in ['strength', 'hypertrophy', 'fat_loss', 'endurance', 'general']
-        && data.preferredUnit is string && data.preferredUnit.size() <= 8
-        && data.preferredUnit in ['kg', 'lbs']
+    function isValidAppViewOptions(data, clientId) {
+      return data.keys().hasAll(['clientId', 'language', 'theme', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['clientId', 'language', 'theme', 'createdAt', 'updatedAt'])
+        && isValidId(data.clientId)
+        && data.clientId == clientId
         && data.language is string && data.language.size() <= 8
         && data.language in ['en', 'ar']
         && data.theme is string && data.theme.size() <= 16
         && data.theme in ['light', 'dark']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidAccountIndexEntry(data) {
+      return data.keys().hasAll(['ownerId', 'status', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['ownerId', 'status', 'createdAt', 'updatedAt'])
+        && isValidId(data.ownerId)
+        && data.ownerId == request.auth.uid
+        && data.status is string && data.status == 'active'
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidUserAccountRoot(data, userId) {
+      return data.keys().hasAll(['ownerId', 'status', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['ownerId', 'status', 'heightCm', 'targetWeightKg', 'createdAt', 'updatedAt'])
+        && isValidId(data.ownerId)
+        && data.ownerId == userId
+        && data.ownerId == request.auth.uid
+        && data.status is string && data.status == 'active'
         && isValidOptionalNumber(data, 'heightCm', 100, 250)
         && isValidOptionalNumber(data, 'targetWeightKg', 20, 400)
         && data.createdAt is timestamp
@@ -69,6 +93,42 @@ service cloud.firestore {
         && data.ownerId == request.auth.uid
         && data.email is string && data.email.size() >= 3 && data.email.size() <= 254
         && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 120
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidUserViewSettings(data, userId) {
+      return data.keys().hasAll(['ownerId', 'goal', 'preferredUnit', 'language', 'theme', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['ownerId', 'goal', 'preferredUnit', 'language', 'theme', 'createdAt', 'updatedAt'])
+        && isValidId(data.ownerId)
+        && data.ownerId == userId
+        && data.ownerId == request.auth.uid
+        && data.goal is string && data.goal.size() <= 32
+        && data.goal in ['strength', 'hypertrophy', 'fat_loss', 'endurance', 'general']
+        && data.preferredUnit is string && data.preferredUnit.size() <= 8
+        && data.preferredUnit in ['kg', 'lbs']
+        && data.language is string && data.language.size() <= 8
+        && data.language in ['en', 'ar']
+        && data.theme is string && data.theme.size() <= 16
+        && data.theme in ['light', 'dark']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidUserStatsSummary(data, userId) {
+      return data.keys().hasAll(['ownerId', 'totalWorkouts', 'totalVolumeKg', 'totalCompletedSets', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly([
+          'ownerId', 'totalWorkouts', 'totalVolumeKg', 'totalCompletedSets',
+          'latestWeightKg', 'latestMeasurementDate', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.ownerId)
+        && data.ownerId == userId
+        && data.ownerId == request.auth.uid
+        && data.totalWorkouts is number && data.totalWorkouts >= 0 && data.totalWorkouts <= 100000
+        && data.totalVolumeKg is number && data.totalVolumeKg >= 0 && data.totalVolumeKg <= 100000000
+        && data.totalCompletedSets is number && data.totalCompletedSets >= 0 && data.totalCompletedSets <= 1000000
+        && isValidOptionalNumber(data, 'latestWeightKg', 20, 400)
+        && isValidOptionalDate(data, 'latestMeasurementDate')
         && data.createdAt is timestamp
         && data.updatedAt is timestamp;
     }
@@ -187,22 +247,60 @@ service cloud.firestore {
         && data.updatedAt is timestamp;
     }
 
-    // User Profile (non-PII preferences)
+    // Device-scoped UI View Options (non-PII theme & language for Login View)
+    match /appOptions/{clientId} {
+      allow get: if isValidId(clientId);
+      allow list: if false;
+      allow create: if isValidId(clientId)
+        && isValidAppViewOptions(incoming(), clientId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(clientId)
+        && isValidAppViewOptions(incoming(), clientId)
+        && incoming().clientId == existing().clientId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['language', 'theme', 'updatedAt']);
+      allow delete: if false;
+    }
+
+    // Non-PII Account Registry (verified before login)
+    match /accountIndex/{emailHash} {
+      allow get: if isValidEmailHash(emailHash);
+      allow list: if false;
+      allow create: if isValidEmailHash(emailHash)
+        && isSignedIn()
+        && isValidAccountIndexEntry(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidEmailHash(emailHash)
+        && isSignedIn()
+        && isOwner(existing().ownerId)
+        && isValidAccountIndexEntry(incoming())
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']);
+      allow delete: if isValidEmailHash(emailHash) && isOwner(existing().ownerId);
+    }
+
+    // Structured User Account Root (ownership, status & biometrics)
     match /users/{userId} {
       allow get: if isValidId(userId) && isOwner(userId);
       allow list: if false;
       allow create: if isValidId(userId)
         && isOwner(userId)
-        && isValidUserProfile(incoming(), userId)
+        && isValidUserAccountRoot(incoming(), userId)
         && incoming().createdAt == request.time
         && incoming().updatedAt == request.time;
       allow update: if isValidId(userId)
         && isOwner(userId)
-        && isValidUserProfile(incoming(), userId)
+        && isValidUserAccountRoot(incoming(), userId)
         && incoming().ownerId == existing().ownerId
+        && incoming().status == existing().status
         && incoming().createdAt == existing().createdAt
         && incoming().updatedAt == request.time
-        && incoming().diff(existing()).affectedKeys().hasOnly(['goal', 'preferredUnit', 'language', 'theme', 'heightCm', 'targetWeightKg', 'updatedAt']);
+        && incoming().diff(existing()).affectedKeys().hasOnly(['heightCm', 'targetWeightKg', 'updatedAt']);
       allow delete: if isValidId(userId) && isOwner(userId);
 
       // Isolated PII
@@ -214,7 +312,8 @@ service cloud.firestore {
           && isOwner(userId)
           && isValidUserPrivateInfo(incoming(), userId)
           && incoming().createdAt == request.time
-          && incoming().updatedAt == request.time;
+          && incoming().updatedAt == request.time
+          && hasValidParentProfile(userId);
         allow update: if isValidId(userId)
           && infoId == 'info'
           && isOwner(userId)
@@ -222,8 +321,58 @@ service cloud.firestore {
           && incoming().ownerId == existing().ownerId
           && incoming().createdAt == existing().createdAt
           && incoming().updatedAt == request.time
-          && incoming().diff(existing()).affectedKeys().hasOnly(['email', 'displayName', 'updatedAt']);
+          && incoming().diff(existing()).affectedKeys().hasOnly(['email', 'displayName', 'updatedAt'])
+          && hasValidParentProfile(userId);
         allow delete: if isValidId(userId) && infoId == 'info' && isOwner(userId);
+      }
+
+      // Structured User Settings & Display Preferences
+      match /settings/{settingId} {
+        allow get: if isValidId(userId) && settingId == 'preferences' && isOwner(userId);
+        allow list: if false;
+        allow create: if isValidId(userId)
+          && settingId == 'preferences'
+          && isOwner(userId)
+          && isValidUserViewSettings(incoming(), userId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && hasValidParentProfile(userId);
+        allow update: if isValidId(userId)
+          && settingId == 'preferences'
+          && isOwner(userId)
+          && isValidUserViewSettings(incoming(), userId)
+          && incoming().ownerId == existing().ownerId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly(['goal', 'preferredUnit', 'language', 'theme', 'updatedAt'])
+          && hasValidParentProfile(userId);
+        allow delete: if isValidId(userId) && settingId == 'preferences' && isOwner(userId);
+      }
+
+      // Structured User Stats Summary
+      match /stats/{statId} {
+        allow get: if isValidId(userId) && statId == 'summary' && isOwner(userId);
+        allow list: if false;
+        allow create: if isValidId(userId)
+          && statId == 'summary'
+          && isOwner(userId)
+          && isValidUserStatsSummary(incoming(), userId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && hasValidParentProfile(userId);
+        allow update: if isValidId(userId)
+          && statId == 'summary'
+          && isOwner(userId)
+          && isValidUserStatsSummary(incoming(), userId)
+          && incoming().ownerId == existing().ownerId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'totalWorkouts', 'totalVolumeKg', 'totalCompletedSets',
+            'latestWeightKg', 'latestMeasurementDate', 'updatedAt'
+          ])
+          && hasValidParentProfile(userId);
+        allow delete: if isValidId(userId) && statId == 'summary' && isOwner(userId);
       }
 
       // Custom Exercises

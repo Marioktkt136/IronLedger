@@ -18,9 +18,11 @@ import {
   BodyMeasurement,
   ExerciseDefinition,
   FitnessGoal,
+  LanguageCode,
   OfflineMutation,
   ProgressReport,
   SyncStatus,
+  ThemeMode,
   TimeframeKey,
   UserPreferences,
   WorkoutEntry,
@@ -36,6 +38,8 @@ const LEGACY_GLOBAL_KEYS = [
   'ironledger_offline_queue_v1',
   'ironledger_active_workout_v1',
 ];
+
+const DEVICE_CLIENT_ID_KEY = 'ironledger_client_id_v1';
 
 interface LocalStoreSnapshot {
   preferences: UserPreferences;
@@ -67,6 +71,9 @@ export class GymStoreService {
   private adapter: FirebaseSyncAdapter | null = null;
   private callbacksRef: CloudSyncCallbacks | null = null;
   private activeUid: string | null = null;
+  private deviceClientId = 'cli_default';
+  private userModifiedViewOptions = false;
+  private authActionInFlight = false;
   private pendingSignupDisplayName: string | null = null;
   private authSeq = 0;
   private restIntervalId: ReturnType<typeof setInterval> | null = null;
@@ -78,10 +85,7 @@ export class GymStoreService {
   readonly authBusy = signal(false);
   readonly authError = signal<string | null>(null);
   readonly authNotice = signal<string | null>(null);
-  readonly authPopupBlocked = signal(false);
   readonly authProviderNeedsSetup = signal(false);
-  readonly isInsideIframe = signal(false);
-  readonly currentAppUrl = signal('');
   readonly isOnline = signal(true);
   readonly offlineModeEnabled = signal(false);
   readonly hasPendingCloudWrites = signal(false);
@@ -163,16 +167,24 @@ export class GymStoreService {
         this.isOnline.set(false);
       });
 
-      try {
-        this.isInsideIframe.set(window.self !== window.top);
-      } catch {
-        this.isInsideIframe.set(true);
-      }
-      this.currentAppUrl.set(window.location.href);
-
+      this.deviceClientId = this.getOrCreateClientId();
       this.purgeLegacyGlobalStorage();
       this.resetInMemoryDomainState();
       void this.initFirebase();
+    }
+  }
+
+  private getOrCreateClientId(): string {
+    try {
+      const existing = localStorage.getItem(DEVICE_CLIENT_ID_KEY);
+      if (existing && BLUEPRINT_LIMITS.idPattern.test(existing) && existing.length <= 128) {
+        return existing;
+      }
+      const created = makeDocId('cli');
+      localStorage.setItem(DEVICE_CLIENT_ID_KEY, created);
+      return created;
+    } catch {
+      return 'cli_default';
     }
   }
 
@@ -217,13 +229,31 @@ export class GymStoreService {
     try {
       const {FirebaseSyncAdapter} = await import('./firebase-sync.adapter');
       this.adapter = new FirebaseSyncAdapter();
+
+      // Load saved theme & language from Firestore appOptions so Login View uses saved options immediately
+      void this.adapter.loadAppOptions(this.deviceClientId).then((savedOpts) => {
+        if (savedOpts && !this.userModifiedViewOptions && !this.activeUid) {
+          this.i18n.setLanguage(savedOpts.language);
+          this.themeService.setTheme(savedOpts.theme);
+          this.preferences.update((prev) => ({
+            ...prev,
+            language: savedOpts.language,
+            theme: savedOpts.theme,
+          }));
+        }
+      });
+
       const callbacks: CloudSyncCallbacks = {
         onAuthChange: async (firebaseUser: AuthUserSummary | null) => {
+          if (this.authActionInFlight) {
+            return;
+          }
+
           const seq = ++this.authSeq;
-          this.user.set(firebaseUser);
-          this.authReady.set(true);
 
           if (!firebaseUser) {
+            this.user.set(null);
+            this.authReady.set(true);
             this.activeUid = null;
             this.adapter?.clearCollectionListeners();
             this.resetInMemoryDomainState();
@@ -232,20 +262,33 @@ export class GymStoreService {
           }
 
           if (this.activeUid === firebaseUser.uid) {
+            this.user.set(firebaseUser);
+            this.authReady.set(true);
             return;
           }
 
-          await this.activateUserSession(firebaseUser, seq);
-        },
-        onRedirectSignIn: async (redirectUser: AuthUserSummary) => {
-          this.user.set(redirectUser);
-          this.authReady.set(true);
-          this.authPopupBlocked.set(false);
-          this.authError.set(null);
-          if (this.activeUid !== redirectUser.uid) {
-            await this.activateUserSession(redirectUser, ++this.authSeq);
+          // Verify user account record actually exists in Firestore database
+          try {
+            const existsInDb = await this.adapter!.verifyUserExistsInDatabase(firebaseUser.uid);
+            if (seq !== this.authSeq || this.authActionInFlight) {
+              return;
+            }
+            if (!existsInDb) {
+              await this.adapter!.signOut();
+              this.user.set(null);
+              this.activeUid = null;
+              this.authReady.set(true);
+              this.resetInMemoryDomainState();
+              this.showLoginView.set(true);
+              return;
+            }
+          } catch {
+            // If offline verification cannot reach server, allow local scoped state only if already cached
           }
-          this.showLoginView.set(false);
+
+          this.user.set(firebaseUser);
+          this.authReady.set(true);
+          await this.activateUserSession(firebaseUser, seq, false);
         },
         onSyncMeta: (hasPending: boolean, fromCache: boolean) => {
           this.hasPendingCloudWrites.set(hasPending);
@@ -253,11 +296,29 @@ export class GymStoreService {
             this.lastSyncedIso.set(new Date().toISOString());
           }
         },
-        onProfile: (prefs: UserPreferences) => {
-          this.preferences.set(prefs);
-          this.i18n.setLanguage(prefs.language);
-          this.themeService.setTheme(prefs.theme);
+        onAccountRoot: (biometrics) => {
+          this.preferences.update((prev) => ({
+            ...prev,
+            heightCm: biometrics.heightCm,
+            targetWeightKg: biometrics.targetWeightKg,
+          }));
           this.persistLocalState();
+        },
+        onSettings: (settings) => {
+          this.preferences.update((prev) => ({
+            ...prev,
+            goal: settings.goal,
+            preferredUnit: settings.preferredUnit,
+            language: settings.language,
+            theme: settings.theme,
+          }));
+          this.i18n.setLanguage(settings.language);
+          this.themeService.setTheme(settings.theme);
+          this.persistLocalState();
+          void this.adapter?.saveAppOptions(this.deviceClientId, {
+            language: settings.language,
+            theme: settings.theme,
+          });
         },
         onExercises: (list: ExerciseDefinition[]) => {
           this.customExercises.set(list);
@@ -288,7 +349,11 @@ export class GymStoreService {
     }
   }
 
-  private async activateUserSession(firebaseUser: AuthUserSummary, seq: number): Promise<void> {
+  private async activateUserSession(
+    firebaseUser: AuthUserSummary,
+    seq: number,
+    isNewAccount: boolean,
+  ): Promise<void> {
     if (!this.adapter || !this.callbacksRef) return;
 
     const effectiveUser: AuthUserSummary =
@@ -302,30 +367,22 @@ export class GymStoreService {
     this.resetInMemoryDomainState();
     this.activeUid = effectiveUser.uid;
 
-    // Load cached offline data strictly scoped to this UID
-    this.loadLocalStateForUid(effectiveUser.uid);
-    this.loadActiveWorkoutDraftForUid(effectiveUser.uid);
-
-    const status = await this.adapter.ensureCloudBootstrap(effectiveUser, {
-      language: this.i18n.lang(),
-      theme: this.themeService.theme(),
-    });
-
-    if (seq !== this.authSeq || this.activeUid !== firebaseUser.uid) {
-      return;
-    }
-
-    if (status === 'created') {
-      // Brand-new account: strictly reset all data to empty
-      this.clearScopedStorageForUid(firebaseUser.uid);
+    if (isNewAccount) {
+      this.clearScopedStorageForUid(effectiveUser.uid);
       this.resetInMemoryDomainState();
       this.persistLocalState();
       this.lastSyncedIso.set(new Date().toISOString());
     } else {
+      this.loadLocalStateForUid(effectiveUser.uid);
+      this.loadActiveWorkoutDraftForUid(effectiveUser.uid);
       await this.flushOfflineQueueIfReady();
     }
 
-    this.adapter.attachCollectionListeners(firebaseUser.uid, this.callbacksRef);
+    if (seq !== this.authSeq || this.activeUid !== effectiveUser.uid) {
+      return;
+    }
+
+    this.adapter.attachCollectionListeners(effectiveUser.uid, this.callbacksRef);
   }
 
   private loadLocalStateForUid(uid: string): void {
@@ -446,7 +503,6 @@ export class GymStoreService {
   openLoginView(): void {
     this.authError.set(null);
     this.authNotice.set(null);
-    this.authPopupBlocked.set(false);
     this.authProviderNeedsSetup.set(false);
     this.showLoginView.set(true);
   }
@@ -454,7 +510,6 @@ export class GymStoreService {
   clearAuthMessages(): void {
     this.authError.set(null);
     this.authNotice.set(null);
-    this.authPopupBlocked.set(false);
     this.authProviderNeedsSetup.set(false);
   }
 
@@ -466,15 +521,10 @@ export class GymStoreService {
         ? String((err as {code?: unknown}).code ?? '')
         : '';
 
-    if (msg === 'AUTH_POPUP_BLOCKED_IFRAME' || code === 'auth/popup-blocked') {
-      this.authPopupBlocked.set(true);
-      this.authError.set(t.authPopupBlockedIframeDesc);
-    } else if (
-      msg === 'AUTH_POPUP_CLOSED' ||
-      code === 'auth/popup-closed-by-user' ||
-      code === 'auth/cancelled-popup-request'
-    ) {
-      this.authError.set(t.authPopupClosed);
+    if (msg === 'AUTH_NOT_IN_DATABASE') {
+      this.authError.set(t.err_auth_not_in_database);
+    } else if (msg === 'AUTH_DB_UNAVAILABLE') {
+      this.authError.set(t.err_auth_db_unavailable);
     } else if (code === 'auth/email-already-in-use') {
       this.authError.set(t.err_auth_email_in_use);
     } else if (
@@ -500,21 +550,24 @@ export class GymStoreService {
   async signUpWithEmail(displayName: string, email: string, password: string): Promise<void> {
     if (!this.adapter) return;
     this.authBusy.set(true);
+    this.authActionInFlight = true;
     this.clearAuthMessages();
     this.pendingSignupDisplayName = displayName.trim().slice(0, 120) || null;
     try {
-      const createdUser = await this.adapter.signUpWithEmail(displayName, email, password);
+      const createdUser = await this.adapter.signUpWithEmail(displayName, email, password, {
+        language: this.i18n.lang(),
+        theme: this.themeService.theme(),
+      });
       if (createdUser) {
         this.user.set(createdUser);
-        if (this.activeUid !== createdUser.uid) {
-          await this.activateUserSession(createdUser, ++this.authSeq);
-        }
+        await this.activateUserSession(createdUser, ++this.authSeq, true);
         this.showLoginView.set(false);
       }
     } catch (err) {
       this.pendingSignupDisplayName = null;
       this.handleAuthFailure(err);
     } finally {
+      this.authActionInFlight = false;
       this.authBusy.set(false);
     }
   }
@@ -522,19 +575,21 @@ export class GymStoreService {
   async signInWithEmail(email: string, password: string): Promise<void> {
     if (!this.adapter) return;
     this.authBusy.set(true);
+    this.authActionInFlight = true;
     this.clearAuthMessages();
     try {
       const signedInUser = await this.adapter.signInWithEmail(email, password);
       if (signedInUser) {
         this.user.set(signedInUser);
         if (this.activeUid !== signedInUser.uid) {
-          await this.activateUserSession(signedInUser, ++this.authSeq);
+          await this.activateUserSession(signedInUser, ++this.authSeq, false);
         }
         this.showLoginView.set(false);
       }
     } catch (err) {
       this.handleAuthFailure(err);
     } finally {
+      this.authActionInFlight = false;
       this.authBusy.set(false);
     }
   }
@@ -549,38 +604,6 @@ export class GymStoreService {
     } catch (err) {
       this.handleAuthFailure(err);
     } finally {
-      this.authBusy.set(false);
-    }
-  }
-
-  async signInWithGoogle(): Promise<void> {
-    if (!this.adapter) return;
-    this.authBusy.set(true);
-    this.clearAuthMessages();
-    try {
-      const signedInUser = await this.adapter.signInWithGoogle();
-      if (signedInUser) {
-        this.user.set(signedInUser);
-        if (this.activeUid !== signedInUser.uid) {
-          await this.activateUserSession(signedInUser, ++this.authSeq);
-        }
-        this.showLoginView.set(false);
-      }
-    } catch (err) {
-      this.handleAuthFailure(err);
-    } finally {
-      this.authBusy.set(false);
-    }
-  }
-
-  async signInWithRedirectFallback(): Promise<void> {
-    if (!this.adapter) return;
-    this.authBusy.set(true);
-    this.clearAuthMessages();
-    try {
-      await this.adapter.signInWithRedirectFlow();
-    } catch (err) {
-      this.handleAuthFailure(err);
       this.authBusy.set(false);
     }
   }
@@ -659,6 +682,7 @@ export class GymStoreService {
       }
       this.dequeueMutation(mut.collection, mut.docId);
     }
+    await this.adapter.syncStatsSummary(uid, this.workouts(), this.measurements());
     this.lastSyncedIso.set(new Date().toISOString());
   }
 
@@ -671,12 +695,52 @@ export class GymStoreService {
     await op();
   }
 
+  // Device + Account View Options (Theme & Language saved in Firestore so Login View opens with them)
+  async saveViewOptions(patch: {language?: LanguageCode; theme?: ThemeMode}): Promise<void> {
+    this.userModifiedViewOptions = true;
+    if (patch.language) this.i18n.setLanguage(patch.language);
+    if (patch.theme) this.themeService.setTheme(patch.theme);
+
+    const nextLang = patch.language ?? this.i18n.lang();
+    const nextTheme = patch.theme ?? this.themeService.theme();
+    this.preferences.update((prev) => ({
+      ...prev,
+      language: nextLang,
+      theme: nextTheme,
+    }));
+
+    if (this.adapter && this.isOnline() && !this.offlineModeEnabled()) {
+      void this.adapter.saveAppOptions(this.deviceClientId, {
+        language: nextLang,
+        theme: nextTheme,
+      });
+    }
+
+    const uid = this.user()?.uid;
+    if (uid && this.adapter) {
+      this.persistLocalState();
+      const adapter = this.adapter;
+      const nextPrefs = this.preferences();
+      await this.dispatchCloudWrite(() => adapter.syncPreferences(uid, nextPrefs));
+    }
+  }
+
   // Preferences
   async updatePreferences(patch: Partial<UserPreferences>): Promise<void> {
+    if (patch.language || patch.theme) {
+      this.userModifiedViewOptions = true;
+    }
     const next: UserPreferences = {...this.preferences(), ...patch};
     this.preferences.set(next);
     if (patch.language) this.i18n.setLanguage(patch.language);
     if (patch.theme) this.themeService.setTheme(patch.theme);
+
+    if (this.adapter && (patch.language || patch.theme) && this.isOnline() && !this.offlineModeEnabled()) {
+      void this.adapter.saveAppOptions(this.deviceClientId, {
+        language: next.language,
+        theme: next.theme,
+      });
+    }
 
     const uid = this.user()?.uid;
     if (!uid || !this.adapter) return;
@@ -832,7 +896,8 @@ export class GymStoreService {
       entries: draft.entries.slice(0, BLUEPRINT_LIMITS.maxEntriesPerWorkout),
     };
 
-    this.workouts.set([session, ...this.workouts()]);
+    const nextWorkouts = [session, ...this.workouts()];
+    this.workouts.set(nextWorkouts);
     this.activeWorkout.set(null);
     this.skipRestTimer();
     this.persistActiveWorkoutDraft();
@@ -841,19 +906,26 @@ export class GymStoreService {
     const uid = this.user()?.uid;
     if (uid && this.adapter) {
       const adapter = this.adapter;
-      await this.dispatchCloudWrite(() => adapter.upsertWorkout(uid, session));
+      await this.dispatchCloudWrite(async () => {
+        await adapter.upsertWorkout(uid, session);
+        await adapter.syncStatsSummary(uid, nextWorkouts, this.measurements());
+      });
     }
     return session;
   }
 
   async deleteWorkout(workoutId: string): Promise<void> {
-    this.workouts.set(this.workouts().filter((w) => w.id !== workoutId));
+    const nextWorkouts = this.workouts().filter((w) => w.id !== workoutId);
+    this.workouts.set(nextWorkouts);
     this.persistLocalState();
 
     const uid = this.user()?.uid;
     if (uid && this.adapter) {
       const adapter = this.adapter;
-      await this.dispatchCloudWrite(() => adapter.deleteSubdoc(uid, 'workouts', workoutId));
+      await this.dispatchCloudWrite(async () => {
+        await adapter.deleteSubdoc(uid, 'workouts', workoutId);
+        await adapter.syncStatsSummary(uid, nextWorkouts, this.measurements());
+      });
     }
   }
 
@@ -912,27 +984,35 @@ export class GymStoreService {
     };
 
     const exists = this.measurements().some((m) => m.id === id);
-    this.measurements.set(
-      exists ? this.measurements().map((m) => (m.id === id ? saved : m)) : [saved, ...this.measurements()],
-    );
+    const nextMeasurements = exists
+      ? this.measurements().map((m) => (m.id === id ? saved : m))
+      : [saved, ...this.measurements()];
+    this.measurements.set(nextMeasurements);
     this.persistLocalState();
 
     const uid = this.user()?.uid;
     if (uid && this.adapter) {
       const adapter = this.adapter;
-      await this.dispatchCloudWrite(() => adapter.upsertMeasurement(uid, saved));
+      await this.dispatchCloudWrite(async () => {
+        await adapter.upsertMeasurement(uid, saved);
+        await adapter.syncStatsSummary(uid, this.workouts(), nextMeasurements);
+      });
     }
     return saved;
   }
 
   async deleteMeasurement(measurementId: string): Promise<void> {
-    this.measurements.set(this.measurements().filter((m) => m.id !== measurementId));
+    const nextMeasurements = this.measurements().filter((m) => m.id !== measurementId);
+    this.measurements.set(nextMeasurements);
     this.persistLocalState();
 
     const uid = this.user()?.uid;
     if (uid && this.adapter) {
       const adapter = this.adapter;
-      await this.dispatchCloudWrite(() => adapter.deleteSubdoc(uid, 'measurements', measurementId));
+      await this.dispatchCloudWrite(async () => {
+        await adapter.deleteSubdoc(uid, 'measurements', measurementId);
+        await adapter.syncStatsSummary(uid, this.workouts(), nextMeasurements);
+      });
     }
   }
 

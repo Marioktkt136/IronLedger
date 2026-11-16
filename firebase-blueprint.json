@@ -1,39 +1,87 @@
 {
   "entities": {
-    "UserProfile": {
-      "title": "UserProfile",
-      "description": "Non-PII training preferences and goal settings for a registered athlete.",
+    "AppViewOptions": {
+      "title": "AppViewOptions",
+      "description": "Device-scoped non-PII UI theme and language preferences so the Login View opens with saved display options.",
       "type": "object",
       "properties": {
-        "ownerId": {
+        "clientId": {
           "type": "string",
-          "description": "Firebase Auth UID of the profile owner.",
+          "description": "Opaque client installation identifier.",
           "minLength": 1,
           "maxLength": 128,
           "pattern": "^[a-zA-Z0-9_\\-]+$"
         },
-        "goal": {
-          "type": "string",
-          "description": "Primary fitness goal.",
-          "enum": ["strength", "hypertrophy", "fat_loss", "endurance", "general"],
-          "maxLength": 32
-        },
-        "preferredUnit": {
-          "type": "string",
-          "description": "Weight unit preference.",
-          "enum": ["kg", "lbs"],
-          "maxLength": 8
-        },
         "language": {
           "type": "string",
-          "description": "UI language preference.",
+          "description": "Saved UI language code.",
           "enum": ["en", "ar"],
           "maxLength": 8
         },
         "theme": {
           "type": "string",
-          "description": "UI theme preference.",
+          "description": "Saved UI theme mode.",
           "enum": ["light", "dark"],
+          "maxLength": 16
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last-updated timestamp."
+        }
+      },
+      "required": ["clientId", "language", "theme", "createdAt", "updatedAt"]
+    },
+    "AccountIndexEntry": {
+      "title": "AccountIndexEntry",
+      "description": "Non-PII SHA-256 email hash directory entry verified before login to ensure the account exists in Firestore.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the registered account.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "status": {
+          "type": "string",
+          "description": "Account registration status.",
+          "enum": ["active"],
+          "maxLength": 16
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerId", "status", "createdAt", "updatedAt"]
+    },
+    "UserAccountRoot": {
+      "title": "UserAccountRoot",
+      "description": "Root account document storing user ownership, account status, and physical biometrics.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the account owner.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "status": {
+          "type": "string",
+          "description": "Account status.",
+          "enum": ["active"],
           "maxLength": 16
         },
         "heightCm": {
@@ -55,7 +103,7 @@
           "description": "Server last-updated timestamp."
         }
       },
-      "required": ["ownerId", "goal", "preferredUnit", "language", "theme", "createdAt", "updatedAt"]
+      "required": ["ownerId", "status", "createdAt", "updatedAt"]
     },
     "UserPrivateInfo": {
       "title": "UserPrivateInfo",
@@ -72,7 +120,7 @@
         "email": {
           "type": "string",
           "format": "email",
-          "description": "Verified account email address.",
+          "description": "Account email address.",
           "minLength": 3,
           "maxLength": 254
         },
@@ -84,16 +132,95 @@
         },
         "createdAt": {
           "type": "string",
-          "format": "date-time",
-          "description": "Server creation timestamp."
+          "format": "date-time"
         },
         "updatedAt": {
           "type": "string",
-          "format": "date-time",
-          "description": "Server last-updated timestamp."
+          "format": "date-time"
         }
       },
       "required": ["ownerId", "email", "displayName", "createdAt", "updatedAt"]
+    },
+    "UserViewSettings": {
+      "title": "UserViewSettings",
+      "description": "Structured user training and display view preferences (theme, language, units, goal).",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "goal": {
+          "type": "string",
+          "enum": ["strength", "hypertrophy", "fat_loss", "endurance", "general"],
+          "maxLength": 32
+        },
+        "preferredUnit": {
+          "type": "string",
+          "enum": ["kg", "lbs"],
+          "maxLength": 8
+        },
+        "language": {
+          "type": "string",
+          "enum": ["en", "ar"],
+          "maxLength": 8
+        },
+        "theme": {
+          "type": "string",
+          "enum": ["light", "dark"],
+          "maxLength": 16
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerId", "goal", "preferredUnit", "language", "theme", "createdAt", "updatedAt"]
+    },
+    "UserStatsSummary": {
+      "title": "UserStatsSummary",
+      "description": "Aggregated training volume, session counts, and latest body weight metrics for quick analytics.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "totalWorkouts": {
+          "type": "number"
+        },
+        "totalVolumeKg": {
+          "type": "number"
+        },
+        "totalCompletedSets": {
+          "type": "number"
+        },
+        "latestWeightKg": {
+          "type": "number"
+        },
+        "latestMeasurementDate": {
+          "type": "string",
+          "maxLength": 10,
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerId", "totalWorkouts", "totalVolumeKg", "totalCompletedSets", "createdAt", "updatedAt"]
     },
     "CustomExercise": {
       "title": "CustomExercise",
@@ -385,13 +512,29 @@
     }
   },
   "firestore": {
+    "/appOptions/{clientId}": {
+      "schema": { "$ref": "#/entities/AppViewOptions" },
+      "description": "Saved theme and language view options loaded when opening the Login View."
+    },
+    "/accountIndex/{emailHash}": {
+      "schema": { "$ref": "#/entities/AccountIndexEntry" },
+      "description": "Non-PII email-hash lookup verified before sign-in."
+    },
     "/users/{userId}": {
-      "schema": { "$ref": "#/entities/UserProfile" },
-      "description": "User training profile and preferences."
+      "schema": { "$ref": "#/entities/UserAccountRoot" },
+      "description": "User account root document with status and body profile metrics."
     },
     "/users/{userId}/private/{infoId}": {
       "schema": { "$ref": "#/entities/UserPrivateInfo" },
       "description": "Isolated PII document (info) strictly restricted to the owning user."
+    },
+    "/users/{userId}/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/UserViewSettings" },
+      "description": "Structured user UI and training preferences (preferences document)."
+    },
+    "/users/{userId}/stats/{statId}": {
+      "schema": { "$ref": "#/entities/UserStatsSummary" },
+      "description": "Aggregated training statistics summary (summary document)."
     },
     "/users/{userId}/exercises/{exerciseId}": {
       "schema": { "$ref": "#/entities/CustomExercise" },
