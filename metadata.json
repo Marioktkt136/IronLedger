@@ -1,0 +1,6 @@
+{
+  "name": "IronLedger — Gym & Performance Tracker",
+  "description": "Cloud-synced gym workout tracker, custom routine builder, body metrics log, and bilingual English/Arabic analytics dashboard with offline support.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

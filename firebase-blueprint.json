@@ -1,0 +1,417 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Non-PII training preferences and goal settings for a registered athlete.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the profile owner.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "goal": {
+          "type": "string",
+          "description": "Primary fitness goal.",
+          "enum": ["strength", "hypertrophy", "fat_loss", "endurance", "general"],
+          "maxLength": 32
+        },
+        "preferredUnit": {
+          "type": "string",
+          "description": "Weight unit preference.",
+          "enum": ["kg", "lbs"],
+          "maxLength": 8
+        },
+        "language": {
+          "type": "string",
+          "description": "UI language preference.",
+          "enum": ["en", "ar"],
+          "maxLength": 8
+        },
+        "theme": {
+          "type": "string",
+          "description": "UI theme preference.",
+          "enum": ["light", "dark"],
+          "maxLength": 16
+        },
+        "heightCm": {
+          "type": "number",
+          "description": "User height/length in centimeters (100 to 250)."
+        },
+        "targetWeightKg": {
+          "type": "number",
+          "description": "Optional target body weight in kilograms."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last-updated timestamp."
+        }
+      },
+      "required": ["ownerId", "goal", "preferredUnit", "language", "theme", "createdAt", "updatedAt"]
+    },
+    "UserPrivateInfo": {
+      "title": "UserPrivateInfo",
+      "description": "Isolated PII document storing user email and display name.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the owner.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Verified account email address.",
+          "minLength": 3,
+          "maxLength": 254
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Display name.",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last-updated timestamp."
+        }
+      },
+      "required": ["ownerId", "email", "displayName", "createdAt", "updatedAt"]
+    },
+    "CustomExercise": {
+      "title": "CustomExercise",
+      "description": "User-created custom exercise definition.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "nameEn": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 100
+        },
+        "nameAr": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "muscleGroup": {
+          "type": "string",
+          "enum": ["chest", "back", "legs", "shoulders", "arms", "core", "full_body"],
+          "maxLength": 24
+        },
+        "equipment": {
+          "type": "string",
+          "enum": ["barbell", "dumbbell", "machine", "cable", "bodyweight", "kettlebell", "other"],
+          "maxLength": 24
+        },
+        "trackingType": {
+          "type": "string",
+          "enum": ["weight_reps", "bodyweight_reps", "duration"],
+          "maxLength": 24
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerId", "nameEn", "muscleGroup", "equipment", "trackingType", "createdAt", "updatedAt"]
+    },
+    "WorkoutRoutine": {
+      "title": "WorkoutRoutine",
+      "description": "Personalized workout routine template with target sets, reps, and rest timers.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 100
+        },
+        "goal": {
+          "type": "string",
+          "enum": ["strength", "hypertrophy", "fat_loss", "endurance", "general"],
+          "maxLength": 32
+        },
+        "estimatedMinutes": {
+          "type": "number"
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "exercises": {
+          "type": "array",
+          "description": "Bounded list (max 30) of prescribed exercise entries."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerId", "name", "goal", "estimatedMinutes", "exercises", "createdAt", "updatedAt"]
+    },
+    "WorkoutSession": {
+      "title": "WorkoutSession",
+      "description": "Completed workout log with sets, reps, load, and computed volume.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 120
+        },
+        "routineId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "startedAtIso": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 40
+        },
+        "completedAtIso": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 40
+        },
+        "durationMinutes": {
+          "type": "number"
+        },
+        "totalVolumeKg": {
+          "type": "number"
+        },
+        "completedSetsCount": {
+          "type": "number"
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 800
+        },
+        "entries": {
+          "type": "array",
+          "description": "Bounded list (max 30) of logged exercises and sets."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "ownerId",
+        "title",
+        "startedAtIso",
+        "completedAtIso",
+        "durationMinutes",
+        "totalVolumeKg",
+        "completedSetsCount",
+        "entries",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "BodyMeasurement": {
+      "title": "BodyMeasurement",
+      "description": "Body weight and anthropometric measurement record.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "recordedDate": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "weightKg": {
+          "type": "number"
+        },
+        "bodyFatPct": {
+          "type": "number"
+        },
+        "chestCm": {
+          "type": "number"
+        },
+        "waistCm": {
+          "type": "number"
+        },
+        "hipsCm": {
+          "type": "number"
+        },
+        "armsCm": {
+          "type": "number"
+        },
+        "thighsCm": {
+          "type": "number"
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerId", "recordedDate", "weightKg", "createdAt", "updatedAt"]
+    },
+    "ProgressReport": {
+      "title": "ProgressReport",
+      "description": "Saved progress report snapshot summarizing workouts, volume, and body weight trend.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 120
+        },
+        "timeframeLabel": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "startDate": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "endDate": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "workoutsCount": {
+          "type": "number"
+        },
+        "totalVolumeKg": {
+          "type": "number"
+        },
+        "weightDeltaKg": {
+          "type": "number"
+        },
+        "topMuscleGroup": {
+          "type": "string",
+          "maxLength": 32
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 800
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "ownerId",
+        "title",
+        "timeframeLabel",
+        "startDate",
+        "endDate",
+        "workoutsCount",
+        "totalVolumeKg",
+        "weightDeltaKg",
+        "topMuscleGroup",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User training profile and preferences."
+    },
+    "/users/{userId}/private/{infoId}": {
+      "schema": { "$ref": "#/entities/UserPrivateInfo" },
+      "description": "Isolated PII document (info) strictly restricted to the owning user."
+    },
+    "/users/{userId}/exercises/{exerciseId}": {
+      "schema": { "$ref": "#/entities/CustomExercise" },
+      "description": "Custom exercises authored by the user."
+    },
+    "/users/{userId}/routines/{routineId}": {
+      "schema": { "$ref": "#/entities/WorkoutRoutine" },
+      "description": "Personalized workout routines."
+    },
+    "/users/{userId}/workouts/{workoutId}": {
+      "schema": { "$ref": "#/entities/WorkoutSession" },
+      "description": "Completed workout logs."
+    },
+    "/users/{userId}/measurements/{measurementId}": {
+      "schema": { "$ref": "#/entities/BodyMeasurement" },
+      "description": "Weight and body measurements history."
+    },
+    "/users/{userId}/progressReports/{reportId}": {
+      "schema": { "$ref": "#/entities/ProgressReport" },
+      "description": "Saved progress report snapshots."
+    }
+  }
+}

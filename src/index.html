@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8" />
+    <title>IronLedger — Gym &amp; Performance Tracker</title>
+    <base href="/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Cloud-synced gym workout tracker, custom routine builder, body metrics log, and bilingual English/Arabic analytics dashboard with offline support."
+    />
+    <meta property="og:title" content="IronLedger — Gym &amp; Performance Tracker" />
+    <meta
+      property="og:description"
+      content="Cloud-synced gym workout tracker, custom routine builder, body metrics log, and bilingual English/Arabic analytics dashboard with offline support."
+    />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" type="image/x-icon" href="favicon.ico" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      (function () {
+        try {
+          var theme = localStorage.getItem('ironledger_theme');
+          if (theme === 'dark') {
+            document.documentElement.classList.add('dark');
+          }
+          var lang = localStorage.getItem('ironledger_lang');
+          if (lang === 'ar') {
+            document.documentElement.lang = 'ar';
+            document.documentElement.dir = 'rtl';
+          }
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body class="bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 antialiased selection:bg-orange-500/20 selection:text-orange-700 dark:selection:text-orange-300">
+    <app-root></app-root>
+  </body>
+</html>
