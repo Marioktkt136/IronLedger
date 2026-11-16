@@ -67,6 +67,7 @@ export class GymStoreService {
   private adapter: FirebaseSyncAdapter | null = null;
   private callbacksRef: CloudSyncCallbacks | null = null;
   private activeUid: string | null = null;
+  private pendingSignupDisplayName: string | null = null;
   private authSeq = 0;
   private restIntervalId: ReturnType<typeof setInterval> | null = null;
 
@@ -76,7 +77,9 @@ export class GymStoreService {
   readonly authReady = signal(false);
   readonly authBusy = signal(false);
   readonly authError = signal<string | null>(null);
+  readonly authNotice = signal<string | null>(null);
   readonly authPopupBlocked = signal(false);
+  readonly authProviderNeedsSetup = signal(false);
   readonly isInsideIframe = signal(false);
   readonly currentAppUrl = signal('');
   readonly isOnline = signal(true);
@@ -288,15 +291,22 @@ export class GymStoreService {
   private async activateUserSession(firebaseUser: AuthUserSummary, seq: number): Promise<void> {
     if (!this.adapter || !this.callbacksRef) return;
 
+    const effectiveUser: AuthUserSummary =
+      !firebaseUser.displayName && this.pendingSignupDisplayName
+        ? {...firebaseUser, displayName: this.pendingSignupDisplayName}
+        : firebaseUser;
+    this.pendingSignupDisplayName = null;
+    this.user.set(effectiveUser);
+
     this.adapter.clearCollectionListeners();
     this.resetInMemoryDomainState();
-    this.activeUid = firebaseUser.uid;
+    this.activeUid = effectiveUser.uid;
 
     // Load cached offline data strictly scoped to this UID
-    this.loadLocalStateForUid(firebaseUser.uid);
-    this.loadActiveWorkoutDraftForUid(firebaseUser.uid);
+    this.loadLocalStateForUid(effectiveUser.uid);
+    this.loadActiveWorkoutDraftForUid(effectiveUser.uid);
 
-    const status = await this.adapter.ensureCloudBootstrap(firebaseUser, {
+    const status = await this.adapter.ensureCloudBootstrap(effectiveUser, {
       language: this.i18n.lang(),
       theme: this.themeService.theme(),
     });
@@ -427,15 +437,126 @@ export class GymStoreService {
 
   enterCurrentAccount(): void {
     if (this.user()) {
+      this.authError.set(null);
+      this.authNotice.set(null);
       this.showLoginView.set(false);
+    }
+  }
+
+  openLoginView(): void {
+    this.authError.set(null);
+    this.authNotice.set(null);
+    this.authPopupBlocked.set(false);
+    this.authProviderNeedsSetup.set(false);
+    this.showLoginView.set(true);
+  }
+
+  clearAuthMessages(): void {
+    this.authError.set(null);
+    this.authNotice.set(null);
+    this.authPopupBlocked.set(false);
+    this.authProviderNeedsSetup.set(false);
+  }
+
+  private handleAuthFailure(err: unknown): void {
+    const t = this.i18n.t();
+    const msg = err instanceof Error ? err.message : String(err);
+    const code =
+      typeof err === 'object' && err !== null && 'code' in err
+        ? String((err as {code?: unknown}).code ?? '')
+        : '';
+
+    if (msg === 'AUTH_POPUP_BLOCKED_IFRAME' || code === 'auth/popup-blocked') {
+      this.authPopupBlocked.set(true);
+      this.authError.set(t.authPopupBlockedIframeDesc);
+    } else if (
+      msg === 'AUTH_POPUP_CLOSED' ||
+      code === 'auth/popup-closed-by-user' ||
+      code === 'auth/cancelled-popup-request'
+    ) {
+      this.authError.set(t.authPopupClosed);
+    } else if (code === 'auth/email-already-in-use') {
+      this.authError.set(t.err_auth_email_in_use);
+    } else if (
+      code === 'auth/invalid-credential' ||
+      code === 'auth/wrong-password' ||
+      code === 'auth/user-not-found'
+    ) {
+      this.authError.set(t.err_auth_invalid_credentials);
+    } else if (code === 'auth/invalid-email') {
+      this.authError.set(t.err_auth_invalid_email);
+    } else if (code === 'auth/weak-password') {
+      this.authError.set(t.err_auth_weak_password);
+    } else if (code === 'auth/operation-not-allowed') {
+      this.authProviderNeedsSetup.set(true);
+      this.authError.set(t.err_auth_operation_not_allowed);
+    } else if (code === 'auth/too-many-requests') {
+      this.authError.set(t.err_auth_too_many_requests);
+    } else {
+      this.authError.set(msg || 'Authentication failed');
+    }
+  }
+
+  async signUpWithEmail(displayName: string, email: string, password: string): Promise<void> {
+    if (!this.adapter) return;
+    this.authBusy.set(true);
+    this.clearAuthMessages();
+    this.pendingSignupDisplayName = displayName.trim().slice(0, 120) || null;
+    try {
+      const createdUser = await this.adapter.signUpWithEmail(displayName, email, password);
+      if (createdUser) {
+        this.user.set(createdUser);
+        if (this.activeUid !== createdUser.uid) {
+          await this.activateUserSession(createdUser, ++this.authSeq);
+        }
+        this.showLoginView.set(false);
+      }
+    } catch (err) {
+      this.pendingSignupDisplayName = null;
+      this.handleAuthFailure(err);
+    } finally {
+      this.authBusy.set(false);
+    }
+  }
+
+  async signInWithEmail(email: string, password: string): Promise<void> {
+    if (!this.adapter) return;
+    this.authBusy.set(true);
+    this.clearAuthMessages();
+    try {
+      const signedInUser = await this.adapter.signInWithEmail(email, password);
+      if (signedInUser) {
+        this.user.set(signedInUser);
+        if (this.activeUid !== signedInUser.uid) {
+          await this.activateUserSession(signedInUser, ++this.authSeq);
+        }
+        this.showLoginView.set(false);
+      }
+    } catch (err) {
+      this.handleAuthFailure(err);
+    } finally {
+      this.authBusy.set(false);
+    }
+  }
+
+  async sendPasswordReset(email: string): Promise<void> {
+    if (!this.adapter) return;
+    this.authBusy.set(true);
+    this.clearAuthMessages();
+    try {
+      await this.adapter.sendPasswordReset(email);
+      this.authNotice.set(this.i18n.t().loginResetSent);
+    } catch (err) {
+      this.handleAuthFailure(err);
+    } finally {
+      this.authBusy.set(false);
     }
   }
 
   async signInWithGoogle(): Promise<void> {
     if (!this.adapter) return;
     this.authBusy.set(true);
-    this.authError.set(null);
-    this.authPopupBlocked.set(false);
+    this.clearAuthMessages();
     try {
       const signedInUser = await this.adapter.signInWithGoogle();
       if (signedInUser) {
@@ -446,24 +567,7 @@ export class GymStoreService {
         this.showLoginView.set(false);
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      const code =
-        typeof err === 'object' && err !== null && 'code' in err
-          ? String((err as {code?: unknown}).code ?? '')
-          : '';
-
-      if (msg === 'AUTH_POPUP_BLOCKED_IFRAME' || code === 'auth/popup-blocked') {
-        this.authPopupBlocked.set(true);
-        this.authError.set(this.i18n.t().authPopupBlockedIframeDesc);
-      } else if (
-        msg === 'AUTH_POPUP_CLOSED' ||
-        code === 'auth/popup-closed-by-user' ||
-        code === 'auth/cancelled-popup-request'
-      ) {
-        this.authError.set(this.i18n.t().authPopupClosed);
-      } else {
-        this.authError.set(msg || 'Sign-in failed');
-      }
+      this.handleAuthFailure(err);
     } finally {
       this.authBusy.set(false);
     }
@@ -472,23 +576,23 @@ export class GymStoreService {
   async signInWithRedirectFallback(): Promise<void> {
     if (!this.adapter) return;
     this.authBusy.set(true);
-    this.authError.set(null);
-    this.authPopupBlocked.set(false);
+    this.clearAuthMessages();
     try {
       await this.adapter.signInWithRedirectFlow();
     } catch (err) {
-      this.authError.set(err instanceof Error ? err.message : 'Sign-in failed');
+      this.handleAuthFailure(err);
       this.authBusy.set(false);
     }
   }
 
-  async switchAccount(): Promise<void> {
-    await this.signInWithGoogle();
+  switchAccount(): void {
+    this.openLoginView();
   }
 
   async signOut(): Promise<void> {
     if (!this.adapter) return;
     this.authBusy.set(true);
+    this.clearAuthMessages();
     try {
       this.activeUid = null;
       this.authSeq += 1;

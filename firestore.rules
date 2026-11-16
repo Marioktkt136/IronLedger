@@ -11,10 +11,6 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isVerified() {
-      return isSignedIn() && request.auth.token.email_verified == true;
-    }
-
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
@@ -195,35 +191,31 @@ service cloud.firestore {
     match /users/{userId} {
       allow get: if isValidId(userId) && isOwner(userId);
       allow list: if false;
-      allow create: if isVerified()
-        && isValidId(userId)
+      allow create: if isValidId(userId)
         && isOwner(userId)
         && isValidUserProfile(incoming(), userId)
         && incoming().createdAt == request.time
         && incoming().updatedAt == request.time;
-      allow update: if isVerified()
-        && isValidId(userId)
+      allow update: if isValidId(userId)
         && isOwner(userId)
         && isValidUserProfile(incoming(), userId)
         && incoming().ownerId == existing().ownerId
         && incoming().createdAt == existing().createdAt
         && incoming().updatedAt == request.time
         && incoming().diff(existing()).affectedKeys().hasOnly(['goal', 'preferredUnit', 'language', 'theme', 'heightCm', 'targetWeightKg', 'updatedAt']);
-      allow delete: if isVerified() && isValidId(userId) && isOwner(userId);
+      allow delete: if isValidId(userId) && isOwner(userId);
 
       // Isolated PII
       match /private/{infoId} {
         allow get: if isValidId(userId) && infoId == 'info' && isOwner(userId);
         allow list: if false;
-        allow create: if isVerified()
-          && isValidId(userId)
+        allow create: if isValidId(userId)
           && infoId == 'info'
           && isOwner(userId)
           && isValidUserPrivateInfo(incoming(), userId)
           && incoming().createdAt == request.time
           && incoming().updatedAt == request.time;
-        allow update: if isVerified()
-          && isValidId(userId)
+        allow update: if isValidId(userId)
           && infoId == 'info'
           && isOwner(userId)
           && isValidUserPrivateInfo(incoming(), userId)
@@ -231,23 +223,21 @@ service cloud.firestore {
           && incoming().createdAt == existing().createdAt
           && incoming().updatedAt == request.time
           && incoming().diff(existing()).affectedKeys().hasOnly(['email', 'displayName', 'updatedAt']);
-        allow delete: if isVerified() && isValidId(userId) && infoId == 'info' && isOwner(userId);
+        allow delete: if isValidId(userId) && infoId == 'info' && isOwner(userId);
       }
 
       // Custom Exercises
       match /exercises/{exerciseId} {
         allow get: if isValidId(userId) && isValidId(exerciseId) && isOwner(userId);
         allow list: if isOwner(userId) && resource.data.ownerId == request.auth.uid;
-        allow create: if isVerified()
-          && isValidId(userId)
+        allow create: if isValidId(userId)
           && isValidId(exerciseId)
           && isOwner(userId)
           && isValidCustomExercise(incoming(), userId)
           && incoming().createdAt == request.time
           && incoming().updatedAt == request.time
           && hasValidParentProfile(userId);
-        allow update: if isVerified()
-          && isValidId(userId)
+        allow update: if isValidId(userId)
           && isValidId(exerciseId)
           && isOwner(userId)
           && isValidCustomExercise(incoming(), userId)
@@ -256,23 +246,21 @@ service cloud.firestore {
           && incoming().updatedAt == request.time
           && incoming().diff(existing()).affectedKeys().hasOnly(['nameEn', 'nameAr', 'muscleGroup', 'equipment', 'trackingType', 'notes', 'updatedAt'])
           && hasValidParentProfile(userId);
-        allow delete: if isVerified() && isValidId(userId) && isValidId(exerciseId) && isOwner(userId);
+        allow delete: if isValidId(userId) && isValidId(exerciseId) && isOwner(userId);
       }
 
       // Workout Routines
       match /routines/{routineId} {
         allow get: if isValidId(userId) && isValidId(routineId) && isOwner(userId);
         allow list: if isOwner(userId) && resource.data.ownerId == request.auth.uid;
-        allow create: if isVerified()
-          && isValidId(userId)
+        allow create: if isValidId(userId)
           && isValidId(routineId)
           && isOwner(userId)
           && isValidWorkoutRoutine(incoming(), userId)
           && incoming().createdAt == request.time
           && incoming().updatedAt == request.time
           && hasValidParentProfile(userId);
-        allow update: if isVerified()
-          && isValidId(userId)
+        allow update: if isValidId(userId)
           && isValidId(routineId)
           && isOwner(userId)
           && isValidWorkoutRoutine(incoming(), userId)
@@ -281,23 +269,21 @@ service cloud.firestore {
           && incoming().updatedAt == request.time
           && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'goal', 'estimatedMinutes', 'notes', 'exercises', 'updatedAt'])
           && hasValidParentProfile(userId);
-        allow delete: if isVerified() && isValidId(userId) && isValidId(routineId) && isOwner(userId);
+        allow delete: if isValidId(userId) && isValidId(routineId) && isOwner(userId);
       }
 
       // Workout Sessions
       match /workouts/{workoutId} {
         allow get: if isValidId(userId) && isValidId(workoutId) && isOwner(userId);
         allow list: if isOwner(userId) && resource.data.ownerId == request.auth.uid;
-        allow create: if isVerified()
-          && isValidId(userId)
+        allow create: if isValidId(userId)
           && isValidId(workoutId)
           && isOwner(userId)
           && isValidWorkoutSession(incoming(), userId)
           && incoming().createdAt == request.time
           && incoming().updatedAt == request.time
           && hasValidParentProfile(userId);
-        allow update: if isVerified()
-          && isValidId(userId)
+        allow update: if isValidId(userId)
           && isValidId(workoutId)
           && isOwner(userId)
           && isValidWorkoutSession(incoming(), userId)
@@ -306,23 +292,21 @@ service cloud.firestore {
           && incoming().updatedAt == request.time
           && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'routineId', 'startedAtIso', 'completedAtIso', 'durationMinutes', 'totalVolumeKg', 'completedSetsCount', 'notes', 'entries', 'updatedAt'])
           && hasValidParentProfile(userId);
-        allow delete: if isVerified() && isValidId(userId) && isValidId(workoutId) && isOwner(userId);
+        allow delete: if isValidId(userId) && isValidId(workoutId) && isOwner(userId);
       }
 
       // Body Measurements
       match /measurements/{measurementId} {
         allow get: if isValidId(userId) && isValidId(measurementId) && isOwner(userId);
         allow list: if isOwner(userId) && resource.data.ownerId == request.auth.uid;
-        allow create: if isVerified()
-          && isValidId(userId)
+        allow create: if isValidId(userId)
           && isValidId(measurementId)
           && isOwner(userId)
           && isValidBodyMeasurement(incoming(), userId)
           && incoming().createdAt == request.time
           && incoming().updatedAt == request.time
           && hasValidParentProfile(userId);
-        allow update: if isVerified()
-          && isValidId(userId)
+        allow update: if isValidId(userId)
           && isValidId(measurementId)
           && isOwner(userId)
           && isValidBodyMeasurement(incoming(), userId)
@@ -331,23 +315,21 @@ service cloud.firestore {
           && incoming().updatedAt == request.time
           && incoming().diff(existing()).affectedKeys().hasOnly(['recordedDate', 'weightKg', 'bodyFatPct', 'chestCm', 'waistCm', 'hipsCm', 'armsCm', 'thighsCm', 'notes', 'updatedAt'])
           && hasValidParentProfile(userId);
-        allow delete: if isVerified() && isValidId(userId) && isValidId(measurementId) && isOwner(userId);
+        allow delete: if isValidId(userId) && isValidId(measurementId) && isOwner(userId);
       }
 
       // Progress Reports
       match /progressReports/{reportId} {
         allow get: if isValidId(userId) && isValidId(reportId) && isOwner(userId);
         allow list: if isOwner(userId) && resource.data.ownerId == request.auth.uid;
-        allow create: if isVerified()
-          && isValidId(userId)
+        allow create: if isValidId(userId)
           && isValidId(reportId)
           && isOwner(userId)
           && isValidProgressReport(incoming(), userId)
           && incoming().createdAt == request.time
           && incoming().updatedAt == request.time
           && hasValidParentProfile(userId);
-        allow update: if isVerified()
-          && isValidId(userId)
+        allow update: if isValidId(userId)
           && isValidId(reportId)
           && isOwner(userId)
           && isValidProgressReport(incoming(), userId)
@@ -356,7 +338,7 @@ service cloud.firestore {
           && incoming().updatedAt == request.time
           && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'timeframeLabel', 'startDate', 'endDate', 'workoutsCount', 'totalVolumeKg', 'weightDeltaKg', 'topMuscleGroup', 'notes', 'updatedAt'])
           && hasValidParentProfile(userId);
-        allow delete: if isVerified() && isValidId(userId) && isValidId(reportId) && isOwner(userId);
+        allow delete: if isValidId(userId) && isValidId(reportId) && isOwner(userId);
       }
     }
   }

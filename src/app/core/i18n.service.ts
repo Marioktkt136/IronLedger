@@ -78,6 +78,34 @@ export interface Translations {
   authOpenInNewTab: string;
   authTryRedirectBtn: string;
   authPopupClosed: string;
+  loginTabSignIn: string;
+  loginTabSignUp: string;
+  loginNameLabel: string;
+  loginNamePlaceholder: string;
+  loginEmailLabel: string;
+  loginEmailPlaceholder: string;
+  loginPasswordLabel: string;
+  loginPasswordPlaceholder: string;
+  loginConfirmPasswordLabel: string;
+  loginShowPassword: string;
+  loginHidePassword: string;
+  loginSubmitSignIn: string;
+  loginSubmitSignUp: string;
+  loginForgotPassword: string;
+  loginResetSent: string;
+  loginOrDivider: string;
+  loginGoogleSecondary: string;
+  loginConsoleProviderLink: string;
+  val_auth_name: string;
+  val_auth_email: string;
+  val_auth_password: string;
+  val_auth_password_mismatch: string;
+  err_auth_email_in_use: string;
+  err_auth_invalid_credentials: string;
+  err_auth_invalid_email: string;
+  err_auth_weak_password: string;
+  err_auth_operation_not_allowed: string;
+  err_auth_too_many_requests: string;
 
   // Dashboard
   dashTitle: string;
@@ -306,11 +334,11 @@ const EN_DICT: Translations = {
   bmiLabel: 'BMI',
 
   loginBadge: 'Isolated Account Database',
-  loginTitle: 'Enter your training account',
-  loginSubtitle: 'Sign in or select a specific Google account to load your private workouts, routines, and body metrics.',
+  loginTitle: 'Sign in or create your account',
+  loginSubtitle: 'Enter your email and password to open your isolated workouts, routines, and body metrics.',
   loginEnterAccountBtn: 'Enter Specific Google Account',
   loginContinueAs: 'Continue as',
-  loginUseAnotherAccount: 'Enter Different Account',
+  loginUseAnotherAccount: 'Switch Account',
   loginIsolatedNote: 'Every account has its own strictly isolated cloud database and offline cache.',
   loginNewAccountNote: 'Creating a new account resets all data to empty and requests your height (cm) and weight (kg) first.',
   loginCheckingSession: 'Checking active account session...',
@@ -322,6 +350,34 @@ const EN_DICT: Translations = {
   authOpenInNewTab: 'Open in Full Tab',
   authTryRedirectBtn: 'Sign in via Redirect',
   authPopupClosed: 'Google sign-in window was closed before completing login.',
+  loginTabSignIn: 'Sign In',
+  loginTabSignUp: 'Create Account',
+  loginNameLabel: 'Full Name',
+  loginNamePlaceholder: 'e.g. Karim Hassan',
+  loginEmailLabel: 'Email Address',
+  loginEmailPlaceholder: 'name@example.com',
+  loginPasswordLabel: 'Password',
+  loginPasswordPlaceholder: 'At least 6 characters',
+  loginConfirmPasswordLabel: 'Confirm Password',
+  loginShowPassword: 'Show password',
+  loginHidePassword: 'Hide password',
+  loginSubmitSignIn: 'Sign In',
+  loginSubmitSignUp: 'Create Account',
+  loginForgotPassword: 'Forgot password?',
+  loginResetSent: 'Password reset link sent to your email address.',
+  loginOrDivider: 'or',
+  loginGoogleSecondary: 'Continue with Google',
+  loginConsoleProviderLink: 'Open Firebase Console Auth Providers',
+  val_auth_name: 'Please enter your name (at least 2 characters).',
+  val_auth_email: 'Please enter a valid email address.',
+  val_auth_password: 'Password must be at least 6 characters.',
+  val_auth_password_mismatch: 'Passwords do not match.',
+  err_auth_email_in_use: 'An account with this email already exists. Switch to Sign In.',
+  err_auth_invalid_credentials: 'Incorrect email or password.',
+  err_auth_invalid_email: 'Please enter a valid email address.',
+  err_auth_weak_password: 'Password must be at least 6 characters.',
+  err_auth_operation_not_allowed: 'Email/Password sign-in is not enabled yet in Firebase Console. Enable the Email/Password provider under Authentication -> Sign-in method.',
+  err_auth_too_many_requests: 'Too many attempts. Please wait a moment and try again.',
 
   dashTitle: 'Performance Dashboard',
   dashSubtitle: 'Track training load, body composition trends, and saved progress reports.',
@@ -568,11 +624,11 @@ const AR_DICT: Translations = {
   bmiLabel: 'مؤشر الكتلة',
 
   loginBadge: 'قاعدة بيانات معزولة لكل حساب',
-  loginTitle: 'تسجيل الدخول إلى حسابك التدريبي',
-  loginSubtitle: 'أدخل أو اختر حساب Google محدد لفتح تمارينك وبرامجك وقياسات جسمك المعزولة عن الآخرين.',
+  loginTitle: 'تسجيل الدخول أو إنشاء حساب',
+  loginSubtitle: 'أدخل بريدك الإلكتروني وكلمة المرور لفتح تمارينك وبرامجك وقياسات جسمك المعزولة عن الآخرين.',
   loginEnterAccountBtn: 'الدخول بحساب Google محدد',
   loginContinueAs: 'المتابعة بحساب',
-  loginUseAnotherAccount: 'الدخول بحساب آخر',
+  loginUseAnotherAccount: 'تبديل الحساب',
   loginIsolatedNote: 'يمتلك كل حساب قاعدة بيانات سحابية وتخزيناً محلياً معزولاً تماماً عن الحسابات الأخرى.',
   loginNewAccountNote: 'عند إنشاء حساب جديد تُمسح البيانات وتبدأ فارغة تماماً مع طلب الطول (سم) والوزن (كجم) أولاً.',
   loginCheckingSession: 'جارٍ التحقق من الجلسة النشطة...',
@@ -584,6 +640,34 @@ const AR_DICT: Translations = {
   authOpenInNewTab: 'فتح في نافذة كاملة',
   authTryRedirectBtn: 'الدخول عبر إعادة التوجيه',
   authPopupClosed: 'تم إغلاق نافذة تسجيل الدخول قبل إتمام العملية.',
+  loginTabSignIn: 'تسجيل الدخول',
+  loginTabSignUp: 'إنشاء حساب',
+  loginNameLabel: 'الاسم الكامل',
+  loginNamePlaceholder: 'مثال: كريم حسن',
+  loginEmailLabel: 'البريد الإلكتروني',
+  loginEmailPlaceholder: 'name@example.com',
+  loginPasswordLabel: 'كلمة المرور',
+  loginPasswordPlaceholder: '٦ أحرف على الأقل',
+  loginConfirmPasswordLabel: 'تأكيد كلمة المرور',
+  loginShowPassword: 'إظهار كلمة المرور',
+  loginHidePassword: 'إخفاء كلمة المرور',
+  loginSubmitSignIn: 'تسجيل الدخول',
+  loginSubmitSignUp: 'إنشاء حساب معزول',
+  loginForgotPassword: 'نسيت كلمة المرور؟',
+  loginResetSent: 'تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني.',
+  loginOrDivider: 'أو',
+  loginGoogleSecondary: 'المتابعة عبر Google',
+  loginConsoleProviderLink: 'فتح إعدادات مزوّدي الدخول في Firebase Console',
+  val_auth_name: 'يرجى إدخال الاسم (حرفين على الأقل).',
+  val_auth_email: 'يرجى إدخال بريد إلكتروني صحيح.',
+  val_auth_password: 'يجب أن تتكون كلمة المرور من ٦ أحرف على الأقل.',
+  val_auth_password_mismatch: 'كلمتا المرور غير متطابقتين.',
+  err_auth_email_in_use: 'يوجد حساب مسجل بهذا البريد الإلكتروني بالفعل. انتقل إلى تسجيل الدخول.',
+  err_auth_invalid_credentials: 'البريد الإلكتروني أو كلمة المرور غير صحيحة.',
+  err_auth_invalid_email: 'يرجى إدخال بريد إلكتروني صحيح.',
+  err_auth_weak_password: 'يجب أن تتكون كلمة المرور من ٦ أحرف على الأقل.',
+  err_auth_operation_not_allowed: 'تسجيل الدخول بالبريد وكلمة المرور غير مفعّل بعد في Firebase Console. فعّل خيار Email/Password من Authentication ← Sign-in method.',
+  err_auth_too_many_requests: 'محاولات كثيرة متتالية. يرجى الانتظار قليلاً ثم المحاولة مجدداً.',
 
   dashTitle: 'لوحة تحليلات الأداء',
   dashSubtitle: 'تتبّع أحمال التدريب وتغيّرات الوزن وتقارير التقدم المحفوظة.',

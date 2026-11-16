@@ -102,12 +102,11 @@ import {BLUEPRINT_LIMITS, FitnessGoal, LanguageCode, ThemeMode, WeightUnit} from
                 }
                 <button
                   type="button"
-                  (click)="store.signInWithGoogle()"
-                  [disabled]="store.authBusy()"
-                  class="mt-3 inline-flex items-center gap-2 rounded-lg bg-orange-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-orange-700 disabled:opacity-50 dark:bg-orange-500 dark:hover:bg-orange-600 whitespace-nowrap"
+                  (click)="onOpenLoginView()"
+                  class="mt-3 inline-flex items-center gap-2 rounded-lg bg-orange-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-orange-700 dark:bg-orange-500 dark:hover:bg-orange-600 whitespace-nowrap"
                 >
-                  <span class="material-icons text-base" aria-hidden="true">cloud_upload</span>
-                  {{ i18n.t().signInGoogle }}
+                  <span class="material-icons text-base" aria-hidden="true">login</span>
+                  {{ i18n.t().loginSubmitSignIn }}
                 </button>
               </div>
             }
@@ -430,11 +429,14 @@ export class AccountModalComponent {
     this.closed.emit();
   }
 
-  async onSwitchAccount(): Promise<void> {
-    await this.store.switchAccount();
-    if (!this.store.authError()) {
-      this.closed.emit();
-    }
+  onSwitchAccount(): void {
+    this.store.switchAccount();
+    this.closed.emit();
+  }
+
+  onOpenLoginView(): void {
+    this.store.openLoginView();
+    this.closed.emit();
   }
 
   async onSignOut(): Promise<void> {

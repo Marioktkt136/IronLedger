@@ -1,11 +1,15 @@
 import {
   GoogleAuthProvider,
   User,
+  createUserWithEmailAndPassword,
   getRedirectResult,
   onAuthStateChanged,
+  sendPasswordResetEmail,
+  signInWithEmailAndPassword,
   signInWithPopup,
   signInWithRedirect,
   signOut as firebaseSignOut,
+  updateProfile,
 } from 'firebase/auth';
 import {
   Unsubscribe,
@@ -95,9 +99,7 @@ export class FirebaseSyncAdapter {
   private knownCloudIds = new Set<string>();
 
   startAuthListener(callbacks: CloudSyncCallbacks): void {
-    // Pre-warm Firebase Auth popup/redirect resolver on boot so click-time signInWithPopup
-    // opens immediately without awaiting internal resolver initialization, and resolve any
-    // pending redirect sign-in if the user returned from signInWithRedirect.
+    // Pre-warm Firebase Auth popup/redirect resolver on boot and resolve any pending redirect login
     void getRedirectResult(this.clients.auth)
       .then((result) => {
         const user = toUserSummary(result?.user ?? null);
@@ -132,6 +134,28 @@ export class FirebaseSyncAdapter {
     }
     this.unsubCollections = [];
     this.knownCloudIds.clear();
+  }
+
+  async signUpWithEmail(displayName: string, email: string, password: string): Promise<AuthUserSummary | null> {
+    const cleanName = displayName.trim().slice(0, 120);
+    const cred = await createUserWithEmailAndPassword(this.clients.auth, email.trim(), password);
+    if (cleanName) {
+      await updateProfile(cred.user, {displayName: cleanName});
+    }
+    return {
+      uid: cred.user.uid,
+      email: cred.user.email,
+      displayName: cleanName || cred.user.displayName,
+    };
+  }
+
+  async signInWithEmail(email: string, password: string): Promise<AuthUserSummary | null> {
+    const cred = await signInWithEmailAndPassword(this.clients.auth, email.trim(), password);
+    return toUserSummary(cred.user);
+  }
+
+  async sendPasswordReset(email: string): Promise<void> {
+    await sendPasswordResetEmail(this.clients.auth, email.trim());
   }
 
   async signInWithGoogle(): Promise<AuthUserSummary | null> {
