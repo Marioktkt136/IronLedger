@@ -3,6 +3,26 @@ export type WeightUnit = 'kg' | 'lbs';
 export type LanguageCode = 'en' | 'ar';
 export type ThemeMode = 'light' | 'dark';
 export type MuscleGroup = 'chest' | 'back' | 'legs' | 'shoulders' | 'arms' | 'core' | 'full_body';
+export type AnatomyMuscleId =
+  | 'upper_chest'
+  | 'mid_chest'
+  | 'anterior_delts'
+  | 'lateral_delts'
+  | 'posterior_delts'
+  | 'biceps'
+  | 'triceps'
+  | 'forearms'
+  | 'lats'
+  | 'traps'
+  | 'mid_back'
+  | 'lower_back'
+  | 'abs'
+  | 'obliques'
+  | 'quads'
+  | 'hamstrings'
+  | 'glutes'
+  | 'calves';
+
 export type EquipmentType =
   | 'barbell'
   | 'dumbbell'
@@ -14,7 +34,16 @@ export type EquipmentType =
 export type TrackingType = 'weight_reps' | 'bodyweight_reps' | 'duration';
 export type TimeframeKey = '7d' | '30d' | '90d' | 'all';
 
-export type NavTab = 'dashboard' | 'workouts' | 'routines' | 'exercises' | 'measurements';
+export type NavTab =
+  | 'dashboard'
+  | 'workouts'
+  | 'routines'
+  | 'exercises'
+  | 'nutrition'
+  | 'measurements';
+
+export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
+export type PantryCategory = 'protein' | 'carbs' | 'fats' | 'produce' | 'dairy' | 'other';
 
 export const BLUEPRINT_LIMITS = {
   idPattern: /^[a-zA-Z0-9_-]+$/,
@@ -62,6 +91,29 @@ export interface ExerciseDefinition {
   trackingType: TrackingType;
   notes?: string;
   isCustom: boolean;
+}
+
+export interface RecommendedMachineGuide {
+  machineName: string;
+  setupCue: string;
+  targetBenefit: string;
+}
+
+export interface ExerciseGuideRecord {
+  id: string;
+  exerciseId: string;
+  exerciseName: string;
+  primaryMuscles: AnatomyMuscleId[];
+  secondaryMuscles: AnatomyMuscleId[];
+  recommendedMachines: RecommendedMachineGuide[];
+  howToUseSteps: string[];
+  commonMistakes: string[];
+  coachingSummary: string;
+}
+
+export interface ExerciseChatMessage {
+  role: 'user' | 'model';
+  text: string;
 }
 
 export interface RoutineExerciseItem {
@@ -145,9 +197,84 @@ export interface ProgressReport {
   notes?: string;
 }
 
+export interface MealFoodItem {
+  name: string;
+  portion: string;
+  calories: number;
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+}
+
+export interface MealLogEntry {
+  id: string;
+  loggedDate: string;
+  mealType: MealType;
+  title: string;
+  sourceMode: 'text' | 'image' | 'manual';
+  totalCalories: number;
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+  fiberG?: number;
+  items: MealFoodItem[];
+  nutritionNote?: string;
+}
+
+export interface PantryFoodItem {
+  id: string;
+  name: string;
+  category: PantryCategory;
+  quantityHint?: string;
+}
+
+export interface WeeklyPlanDay {
+  dayLabel: string;
+  totalCalories: number;
+  proteinG: number;
+  breakfast: string;
+  lunch: string;
+  dinner: string;
+  snack: string;
+}
+
+export interface WeeklyMealPlan {
+  id: string;
+  title: string;
+  goal: FitnessGoal;
+  dailyTargetCalories: number;
+  language: LanguageCode;
+  notes?: string;
+  days: WeeklyPlanDay[];
+}
+
+export interface NutritionRecommendationResult {
+  summary: string;
+  suggestions: {
+    title: string;
+    reason: string;
+    estimatedCalories: number;
+    proteinG: number;
+    carbsG: number;
+    fatG: number;
+    usesPantry: boolean;
+  }[];
+  hydrationOrTimingTip: string;
+}
+
 export interface OfflineMutation {
   id: string;
-  collection: 'exercises' | 'routines' | 'workouts' | 'measurements' | 'progressReports' | 'profile';
+  collection:
+    | 'exercises'
+    | 'exerciseGuides'
+    | 'routines'
+    | 'workouts'
+    | 'measurements'
+    | 'progressReports'
+    | 'mealLogs'
+    | 'pantryItems'
+    | 'mealPlans'
+    | 'profile';
   action: 'upsert' | 'delete';
   docId: string;
   queuedAtIso: string;

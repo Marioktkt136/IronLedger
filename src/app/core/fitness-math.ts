@@ -3,14 +3,18 @@ import {
   BodyMeasurement,
   EquipmentType,
   ExerciseDefinition,
+  ExerciseGuideRecord,
   FitnessGoal,
   LanguageCode,
+  MealLogEntry,
   MuscleGroup,
+  PantryFoodItem,
   ProgressReport,
   ThemeMode,
   TimeframeKey,
   TrackingType,
   UserPreferences,
+  WeeklyMealPlan,
   WeightUnit,
   WorkoutEntry,
   WorkoutRoutine,
@@ -420,10 +424,14 @@ export function getScopedStorageKeys(uid: string): ScopedStorageKeys {
 export interface CleanAccountSnapshot {
   preferences: UserPreferences;
   customExercises: ExerciseDefinition[];
+  exerciseGuides: ExerciseGuideRecord[];
   routines: WorkoutRoutine[];
   workouts: WorkoutSession[];
   measurements: BodyMeasurement[];
   progressReports: ProgressReport[];
+  mealLogs: MealLogEntry[];
+  pantryItems: PantryFoodItem[];
+  mealPlans: WeeklyMealPlan[];
 }
 
 export function createCleanAccountSnapshot(
@@ -440,10 +448,14 @@ export function createCleanAccountSnapshot(
       targetWeightKg: undefined,
     },
     customExercises: [],
+    exerciseGuides: [],
     routines: [],
     workouts: [],
     measurements: [],
     progressReports: [],
+    mealLogs: [],
+    pantryItems: [],
+    mealPlans: [],
   };
 }
 
@@ -582,5 +594,87 @@ export function hashAccountEmail(email: string): string {
   return sha256Hex(email.trim().toLowerCase());
 }
 
+export interface DailyNutritionTarget {
+  calories: number;
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+}
+
+export function calculateDailyCalorieTarget(input: {
+  weightKg?: number | null;
+  heightCm?: number | null;
+  goal: FitnessGoal;
+}): DailyNutritionTarget {
+  const w = input.weightKg && input.weightKg >= 30 && input.weightKg <= 300 ? input.weightKg : 75;
+  const h = input.heightCm && input.heightCm >= 120 && input.heightCm <= 230 ? input.heightCm : 175;
+  // Mifflin-St Jeor baseline (neutral adult age 28) x moderate gym activity factor 1.5
+  const bmr = 10 * w + 6.25 * h - 5 * 28 - 40;
+  const tdee = bmr * 1.5;
+
+  let adjustment = 0;
+  if (input.goal === 'fat_loss') adjustment = -400;
+  else if (input.goal === 'hypertrophy') adjustment = 250;
+  else if (input.goal === 'strength') adjustment = 200;
+  else if (input.goal === 'endurance') adjustment = 150;
+
+  const calories = Math.min(4800, Math.max(1300, Math.round((tdee + adjustment) / 10) * 10));
+  const proteinPerKg = input.goal === 'fat_loss' ? 2.1 : input.goal === 'hypertrophy' || input.goal === 'strength' ? 1.9 : 1.6;
+  const proteinG = Math.round(w * proteinPerKg);
+  const fatG = Math.round((calories * 0.25) / 9);
+  const remainingKcal = Math.max(200, calories - proteinG * 4 - fatG * 9);
+  const carbsG = Math.round(remainingKcal / 4);
+
+  return {calories, proteinG, carbsG, fatG};
+}
+
+export interface DailyNutritionSummary {
+  dateYmd: string;
+  mealsCount: number;
+  consumedCalories: number;
+  remainingCalories: number;
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+  fiberG: number;
+  caloriePct: number;
+}
+
+export function computeDailyNutritionSummary(
+  mealLogs: MealLogEntry[],
+  dateYmd: string,
+  targetCalories: number,
+): DailyNutritionSummary {
+  const dayMeals = mealLogs.filter((m) => m.loggedDate === dateYmd);
+  let consumedCalories = 0;
+  let proteinG = 0;
+  let carbsG = 0;
+  let fatG = 0;
+  let fiberG = 0;
+
+  for (const m of dayMeals) {
+    consumedCalories += Math.max(0, m.totalCalories || 0);
+    proteinG += Math.max(0, m.proteinG || 0);
+    carbsG += Math.max(0, m.carbsG || 0);
+    fatG += Math.max(0, m.fatG || 0);
+    fiberG += Math.max(0, m.fiberG || 0);
+  }
+
+  consumedCalories = Math.round(consumedCalories);
+  const safeTarget = Math.max(1, targetCalories);
+  const caloriePct = Math.min(150, Math.round((consumedCalories / safeTarget) * 100));
+
+  return {
+    dateYmd,
+    mealsCount: dayMeals.length,
+    consumedCalories,
+    remainingCalories: Math.max(0, Math.round(safeTarget - consumedCalories)),
+    proteinG: roundTo(proteinG, 1),
+    carbsG: roundTo(carbsG, 1),
+    fatG: roundTo(fatG, 1),
+    fiberG: roundTo(fiberG, 1),
+    caloriePct,
+  };
+}
 
 

@@ -5,7 +5,9 @@ import {
   ExerciseDefinition,
   FitnessGoal,
   LanguageCode,
+  MealType,
   MuscleGroup,
+  PantryCategory,
   TrackingType,
   WeightUnit,
 } from './models';
@@ -16,6 +18,7 @@ export interface Translations {
   navWorkouts: string;
   navRoutines: string;
   navExercises: string;
+  navNutrition: string;
   navMeasurements: string;
   sidebarAria: string;
   mainNavAria: string;
@@ -199,7 +202,7 @@ export interface Translations {
   removeLabel: string;
   noRoutinesYet: string;
 
-  // Exercises
+  // Exercises, Muscle Anatomy & Gemini Coach
   exercisesTitle: string;
   exercisesSubtitle: string;
   addExerciseBtn: string;
@@ -217,6 +220,96 @@ export interface Translations {
   customTag: string;
   builtInTag: string;
   noExercisesMatch: string;
+  anatomySectionTitle: string;
+  anatomySectionSubtitle: string;
+  anatomyViewFront: string;
+  anatomyViewBack: string;
+  anatomyViewBoth: string;
+  anatomyPrimaryLabel: string;
+  anatomySecondaryLabel: string;
+  anatomyClearFilter: string;
+  anatomySelectPrompt: string;
+  anatomyMachinesForMuscle: string;
+  anatomyCuesForMuscle: string;
+  anatomyFilterMatchingBtn: string;
+  exTabGuide: string;
+  exTabChat: string;
+  exAnalyzeGeminiBtn: string;
+  exAnalyzingGemini: string;
+  exSavedGuideBadge: string;
+  exRecommendedMachinesTitle: string;
+  exHowToStepsTitle: string;
+  exMistakesTitle: string;
+  exSelectPrompt: string;
+  exChatPlaceholder: string;
+  exChatSendBtn: string;
+  exChatThinking: string;
+  exChatWelcome: string;
+  exQuickPromptForm: string;
+  exQuickPromptMachine: string;
+  exQuickPromptProgress: string;
+
+  // Nutrition & Gemini Meal Planner
+  nutritionTitle: string;
+  nutritionSubtitle: string;
+  nutriDateLabel: string;
+  nutriDailyTarget: string;
+  nutriConsumed: string;
+  nutriRemaining: string;
+  nutriProtein: string;
+  nutriCarbs: string;
+  nutriFat: string;
+  nutriFiber: string;
+  nutriGramUnit: string;
+  nutriKcalUnit: string;
+  nutriLogMealTitle: string;
+  nutriTabText: string;
+  nutriTabImage: string;
+  nutriTabManual: string;
+  nutriMealTypeLabel: string;
+  nutriMealTextLabel: string;
+  nutriMealTextPlaceholder: string;
+  nutriUploadPhotoBtn: string;
+  nutriChangePhotoBtn: string;
+  nutriPhotoHint: string;
+  nutriAnalyzeMealBtn: string;
+  nutriAnalyzingMeal: string;
+  nutriPreviewTitle: string;
+  nutriSaveMealBtn: string;
+  nutriDiscardPreviewBtn: string;
+  nutriManualTitleLabel: string;
+  nutriManualTitlePlaceholder: string;
+  nutriManualCalsLabel: string;
+  nutriMealsLoggedTitle: string;
+  nutriNoMealsToday: string;
+  nutriAiAdvisorTitle: string;
+  nutriAiAdvisorSubtitle: string;
+  nutriGetAdviceBtn: string;
+  nutriGettingAdvice: string;
+  nutriPantryMatchTag: string;
+  nutriPantryTitle: string;
+  nutriPantrySubtitle: string;
+  nutriPantryFoodLabel: string;
+  nutriPantryFoodPlaceholder: string;
+  nutriPantryQtyLabel: string;
+  nutriPantryQtyPlaceholder: string;
+  nutriPantryCategoryLabel: string;
+  nutriAddPantryBtn: string;
+  nutriQuickAddCommonBtn: string;
+  nutriNoPantryYet: string;
+  nutriPlanNotesLabel: string;
+  nutriPlanNotesPlaceholder: string;
+  nutriGeneratePlanBtn: string;
+  nutriGeneratingPlan: string;
+  nutriSavedPlansTitle: string;
+  nutriNoPlansYet: string;
+  nutriMealBreakfast: string;
+  nutriMealLunch: string;
+  nutriMealDinner: string;
+  nutriMealSnack: string;
+  nutriMealTypes: Record<MealType, string>;
+  nutriPantryCategories: Record<PantryCategory, string>;
+  geminiErrorPrefix: string;
 
   // Measurements
   measurementsTitle: string;
@@ -283,7 +376,8 @@ const EN_DICT: Translations = {
   navWorkouts: 'Workouts',
   navRoutines: 'Routines',
   navExercises: 'Exercises',
-  navMeasurements: 'Body Metrics',
+  navNutrition: 'Nutrition',
+  navMeasurements: 'Metrics',
   sidebarAria: 'Primary sidebar',
   mainNavAria: 'Main navigation',
   mobileNavAria: 'Mobile navigation',
@@ -460,8 +554,8 @@ const EN_DICT: Translations = {
   removeLabel: 'Remove',
   noRoutinesYet: 'No custom routines yet. Create one to launch sessions in one click.',
 
-  exercisesTitle: 'Exercise Library',
-  exercisesSubtitle: 'Browse built-in movements or add custom exercises for your program.',
+  exercisesTitle: 'Exercise Library & Muscle Target Guide',
+  exercisesSubtitle: 'Inspect every human muscle, see recommended gym machines & setup steps, and chat with Gemini Coach.',
   addExerciseBtn: 'Add Exercise',
   searchExercisesPlaceholder: 'Search by name (English or Arabic)...',
   allMuscles: 'All Muscles',
@@ -477,6 +571,107 @@ const EN_DICT: Translations = {
   customTag: 'Custom',
   builtInTag: 'Library',
   noExercisesMatch: 'No exercises match your current search filters.',
+  anatomySectionTitle: 'Human Muscle Target Atlas & Machine Guide',
+  anatomySectionSubtitle: 'Click any muscle on the front or back body map to inspect setup cues, recommended gym machines, or filter matching exercises.',
+  anatomyViewFront: 'Front',
+  anatomyViewBack: 'Back',
+  anatomyViewBoth: 'Front & Back',
+  anatomyPrimaryLabel: 'Primary Target',
+  anatomySecondaryLabel: 'Secondary Synergist',
+  anatomyClearFilter: 'Show All Exercises',
+  anatomySelectPrompt: 'Click any muscle region on the human body map to view how to hit it properly on gym machines.',
+  anatomyMachinesForMuscle: 'Recommended Gym Machines for this Muscle',
+  anatomyCuesForMuscle: 'Execution Cues to Hit This Muscle Correctly',
+  anatomyFilterMatchingBtn: 'Filter Exercises Targeting This Muscle',
+  exTabGuide: 'Muscles & Machines',
+  exTabChat: 'Gemini Coach Chat',
+  exAnalyzeGeminiBtn: 'Analyze & Personalize with Gemini',
+  exAnalyzingGemini: 'Analyzing biomechanics...',
+  exSavedGuideBadge: 'Saved to your account',
+  exRecommendedMachinesTitle: 'Recommended Gym Machines & Setup',
+  exHowToStepsTitle: 'How to Execute & Target Correctly',
+  exMistakesTitle: 'Common Mistakes to Avoid',
+  exSelectPrompt: 'Select an exercise on the left to view its human muscle target diagram, machine guide, and Gemini coaching chat.',
+  exChatPlaceholder: 'Ask Gemini about form, grip width, seat height, breathing, or weight progression...',
+  exChatSendBtn: 'Send',
+  exChatThinking: 'Gemini is thinking...',
+  exChatWelcome: 'Ask anything about form, machine alignment, range of motion, or progression for this movement.',
+  exQuickPromptForm: 'Check exact machine setup & seat height',
+  exQuickPromptMachine: 'Best machine alternative at a busy gym?',
+  exQuickPromptProgress: 'How should I progress my weight safely?',
+
+  nutritionTitle: 'Nutrition Guide & Gemini Meal Planner',
+  nutritionSubtitle: 'Log daily meals via text or photo, track calories & macros, get smart meal advice, and build a 7-day plan from foods you already have.',
+  nutriDateLabel: 'Date',
+  nutriDailyTarget: 'Daily Target',
+  nutriConsumed: 'Consumed',
+  nutriRemaining: 'Remaining',
+  nutriProtein: 'Protein',
+  nutriCarbs: 'Carbs',
+  nutriFat: 'Fat',
+  nutriFiber: 'Fiber',
+  nutriGramUnit: 'g',
+  nutriKcalUnit: 'kcal',
+  nutriLogMealTitle: 'Add What I Ate',
+  nutriTabText: 'Text Description',
+  nutriTabImage: 'Meal Photo',
+  nutriTabManual: 'Quick Manual',
+  nutriMealTypeLabel: 'Meal Slot',
+  nutriMealTextLabel: 'Describe what you ate & approximate portions',
+  nutriMealTextPlaceholder: 'e.g. 180g grilled chicken breast, 1 cup cooked basmati rice, mixed salad with 1 tbsp olive oil',
+  nutriUploadPhotoBtn: 'Upload Meal Photo',
+  nutriChangePhotoBtn: 'Change Photo',
+  nutriPhotoHint: 'Upload a clear photo of your plate or snack. You can add optional portion notes before Gemini calculates calories & macros.',
+  nutriAnalyzeMealBtn: 'Calculate Calories with Gemini',
+  nutriAnalyzingMeal: 'Analyzing meal nutrition...',
+  nutriPreviewTitle: 'Analyzed Meal Breakdown',
+  nutriSaveMealBtn: 'Save Meal to Daily Log',
+  nutriDiscardPreviewBtn: 'Discard',
+  nutriManualTitleLabel: 'Meal Name',
+  nutriManualTitlePlaceholder: 'e.g. Oats, Whey & Banana',
+  nutriManualCalsLabel: 'Calories (kcal)',
+  nutriMealsLoggedTitle: 'Meals Logged for Selected Day',
+  nutriNoMealsToday: 'No meals logged on this date yet. Add your meal via text, photo, or manual entry above.',
+  nutriAiAdvisorTitle: 'Gemini Nutrition Advisor — What to Eat Next',
+  nutriAiAdvisorSubtitle: 'Analyzes today’s consumed calories, remaining macro gaps, fitness goal, and foods you already have.',
+  nutriGetAdviceBtn: 'Recommend What to Eat',
+  nutriGettingAdvice: 'Generating nutrition advice...',
+  nutriPantryMatchTag: 'Uses your pantry',
+  nutriPantryTitle: 'Foods I Have (Pantry & Fridge)',
+  nutriPantrySubtitle: 'Add ingredients you currently have at home so Gemini prioritizes them for daily advice and builds your 7-day meal plan.',
+  nutriPantryFoodLabel: 'Food / Ingredient Name',
+  nutriPantryFoodPlaceholder: 'e.g. Chicken breast, eggs, basmati rice, Greek yogurt',
+  nutriPantryQtyLabel: 'Amount (optional)',
+  nutriPantryQtyPlaceholder: 'e.g. 1 kg / 12 eggs',
+  nutriPantryCategoryLabel: 'Category',
+  nutriAddPantryBtn: 'Add Food',
+  nutriQuickAddCommonBtn: 'Add Gym Staples',
+  nutriNoPantryYet: 'Your pantry list is empty. Add foods you have on hand to generate a custom 7-day weekly meal plan.',
+  nutriPlanNotesLabel: 'Meal Plan Preferences (optional)',
+  nutriPlanNotesPlaceholder: 'e.g. Quick 15-min prep lunches, high protein, dairy-light dinners',
+  nutriGeneratePlanBtn: 'Generate 7-Day Weekly Meal Plan',
+  nutriGeneratingPlan: 'Building 7-day meal plan...',
+  nutriSavedPlansTitle: 'Saved Weekly Meal Plans',
+  nutriNoPlansYet: 'No weekly meal plans generated yet. Add at least 2 foods above and click Generate 7-Day Weekly Meal Plan.',
+  nutriMealBreakfast: 'Breakfast',
+  nutriMealLunch: 'Lunch',
+  nutriMealDinner: 'Dinner',
+  nutriMealSnack: 'Snack',
+  nutriMealTypes: {
+    breakfast: 'Breakfast',
+    lunch: 'Lunch',
+    dinner: 'Dinner',
+    snack: 'Snack',
+  },
+  nutriPantryCategories: {
+    protein: 'Protein',
+    carbs: 'Carbs & Grains',
+    fats: 'Healthy Fats',
+    produce: 'Fruits & Veg',
+    dairy: 'Dairy',
+    other: 'Other',
+  },
+  geminiErrorPrefix: 'Gemini notice: ',
 
   measurementsTitle: 'Weight & Body Measurements',
   measurementsSubtitle: 'Record weight, body fat, and circumferences to monitor long-term progress.',
@@ -564,8 +759,9 @@ const AR_DICT: Translations = {
   navDashboard: 'لوحة الأداء',
   navWorkouts: 'الجلسات',
   navRoutines: 'البرامج',
-  navExercises: 'مكتبة التمارين',
-  navMeasurements: 'قياسات الجسم',
+  navExercises: 'التمارين',
+  navNutrition: 'التغذية',
+  navMeasurements: 'القياسات',
   sidebarAria: 'القائمة الجانبية الرئيسية',
   mainNavAria: 'التنقل الرئيسي',
   mobileNavAria: 'شريط التنقل السفلي',
@@ -742,8 +938,8 @@ const AR_DICT: Translations = {
   removeLabel: 'إزالة',
   noRoutinesYet: 'لا توجد برامج مخصصة بعد. أنشئ برنامجاً لبدء التدريب بضغطة واحدة.',
 
-  exercisesTitle: 'مكتبة التمارين',
-  exercisesSubtitle: 'تصفح التمارين الأساسية أو أضف تمارينك الخاصة.',
+  exercisesTitle: 'مكتبة التمارين وخريطة العضلات الذكية',
+  exercisesSubtitle: 'استعرض عضلات الجسم البشري، وتعرّف على الأجهزة الموصى بها وطريقة الاستخدام الصحيحة، ودردش مع مدرب Gemini.',
   addExerciseBtn: 'إضافة تمرين',
   searchExercisesPlaceholder: 'ابحث بالاسم (عربي أو إنجليزي)...',
   allMuscles: 'كل العضلات',
@@ -759,6 +955,107 @@ const AR_DICT: Translations = {
   customTag: 'مخصص',
   builtInTag: 'أساسي',
   noExercisesMatch: 'لا توجد تمارين مطابقة لخيارات البحث الحالية.',
+  anatomySectionTitle: 'خريطة عضلات الجسم ودليل الأجهزة',
+  anatomySectionSubtitle: 'اضغط على أي عضلة في الجهة الأمامية أو الخلفية لمعرفة كيفية استهدافها بدقة والأجهزة المناسبة في الجيم.',
+  anatomyViewFront: 'أمامي',
+  anatomyViewBack: 'خلفي',
+  anatomyViewBoth: 'أمامي وخلفي',
+  anatomyPrimaryLabel: 'العضلة الأساسية',
+  anatomySecondaryLabel: 'عضلات مساعدة',
+  anatomyClearFilter: 'عرض كل التمارين',
+  anatomySelectPrompt: 'اختر أي منطقة عضلية على خريطة الجسم لعرض خطوات الأداء والأجهزة الموصى بها.',
+  anatomyMachinesForMuscle: 'الأجهزة الموصى بها لاستهداف هذه العضلة',
+  anatomyCuesForMuscle: 'خطوات الاستهداف الصحيح لهذه العضلة',
+  anatomyFilterMatchingBtn: 'تصفية التمارين لهذه العضلة',
+  exTabGuide: 'العضلات والأجهزة',
+  exTabChat: 'دردشة Gemini للتمارين',
+  exAnalyzeGeminiBtn: 'تحليل وتخصيص التمرين عبر Gemini',
+  exAnalyzingGemini: 'جارٍ تحليل الأداء والعضلات...',
+  exSavedGuideBadge: 'محفوظ في حسابك',
+  exRecommendedMachinesTitle: 'الأجهزة الموصى بها وطريقة ضبطها',
+  exHowToStepsTitle: 'خطوات الاستخدام والأداء الصحيح',
+  exMistakesTitle: 'أخطاء شائعة يجب تجنبها',
+  exSelectPrompt: 'اختر تمريناً من القائمة لعرض خريطة العضلات المستهدفة ودليل الأجهزة ومحادثة Gemini.',
+  exChatPlaceholder: 'اسأل Gemini عن ضبط المقعد، زاوية القبضة، التنفس، أو زيادة الوزن...',
+  exChatSendBtn: 'إرسال',
+  exChatThinking: 'Gemini يكتب الرد...',
+  exChatWelcome: 'اسأل أي سؤال حول الأداء الصحيح أو ضبط الجهاز أو التدرج في الوزن لهذا التمرين.',
+  exQuickPromptForm: 'كيف أضبط المقعد والجهاز بشكل صحيح؟',
+  exQuickPromptMachine: 'ما أفضل جهاز بديل إذا كان مزدحماً؟',
+  exQuickPromptProgress: 'كيف أزيد الأوزان بأمان في هذا التمرين؟',
+
+  nutritionTitle: 'دليل التغذية ومخطط الوجبات الذكي (Gemini)',
+  nutritionSubtitle: 'سجّل ما تناولته يومياً بالنص أو الصورة لحساب السعرات، واحصل على توصيات غذائية وخطط أسبوعية من الأطعمة المتوفرة لديك.',
+  nutriDateLabel: 'التاريخ',
+  nutriDailyTarget: 'الهدف اليومي',
+  nutriConsumed: 'المستهلك اليوم',
+  nutriRemaining: 'المتبقي',
+  nutriProtein: 'البروتين',
+  nutriCarbs: 'الكربوهيدرات',
+  nutriFat: 'الدهون',
+  nutriFiber: 'الألياف',
+  nutriGramUnit: 'جم',
+  nutriKcalUnit: 'سعرة',
+  nutriLogMealTitle: 'إضافة ما أكلته اليوم',
+  nutriTabText: 'وصف نصي',
+  nutriTabImage: 'صورة الوجبة',
+  nutriTabManual: 'إدخال يدوي',
+  nutriMealTypeLabel: 'نوع الوجبة',
+  nutriMealTextLabel: 'اكتب مكونات الوجبة والكميات التقريبية',
+  nutriMealTextPlaceholder: 'مثال: ١٨٠ جم صدر دجاج مشوي، كوب أرز بسمتي مطبوخ، سلطة خضراء مع ملعقة زيت زيتون',
+  nutriUploadPhotoBtn: 'رفع صورة الوجبة',
+  nutriChangePhotoBtn: 'تغيير الصورة',
+  nutriPhotoHint: 'ارفع صورة واضحة لطبقك أو وجبتك، ويمكنك إضافة ملاحظة للكمية ليحسب Gemini السعرات والعناصر الغذائية.',
+  nutriAnalyzeMealBtn: 'حساب السعرات عبر Gemini',
+  nutriAnalyzingMeal: 'جارٍ تحليل مكونات الوجبة...',
+  nutriPreviewTitle: 'تحليل الوجبة المقترح',
+  nutriSaveMealBtn: 'حفظ الوجبة في سجل اليوم',
+  nutriDiscardPreviewBtn: 'تجاهل',
+  nutriManualTitleLabel: 'اسم الوجبة',
+  nutriManualTitlePlaceholder: 'مثال: شوفان مع واي بروتين وموز',
+  nutriManualCalsLabel: 'السعرات الحرارية',
+  nutriMealsLoggedTitle: 'الوجبات المسجلة لهذا اليوم',
+  nutriNoMealsToday: 'لم تُسجّل أي وجبات في هذا التاريخ بعد. أضف وجبتك بالنص أو الصورة من الأعلى.',
+  nutriAiAdvisorTitle: 'مستشار Gemini الغذائي — ماذا تأكل الآن؟',
+  nutriAiAdvisorSubtitle: 'يحلل ما تناولته اليوم والسعرات المتبقية وهدفك الرياضي والمكونات المتوفرة لديك لتقديم توصيات دقيقة.',
+  nutriGetAdviceBtn: 'اقترح ماذا آكل الآن',
+  nutriGettingAdvice: 'جارٍ إعداد التوصيات الغذائية...',
+  nutriPantryMatchTag: 'من أكلتك المتوفرة',
+  nutriPantryTitle: 'الأطعمة المتوفرة لدي (المخزون اليومي)',
+  nutriPantrySubtitle: 'أضف المكونات والأطعمة الموجودة لديك ليعطيك Gemini توصيات يومية منها ويبني لك جدول وجبات للأسبوع كامل.',
+  nutriPantryFoodLabel: 'اسم الطعام أو المكون',
+  nutriPantryFoodPlaceholder: 'مثال: صدور دجاج، بيض، أرز بسمتي، شوفان، زبادي يوناني',
+  nutriPantryQtyLabel: 'الكمية (اختياري)',
+  nutriPantryQtyPlaceholder: 'مثال: ١ كجم / ١٢ بيضة',
+  nutriPantryCategoryLabel: 'التصنيف',
+  nutriAddPantryBtn: 'إضافة للمخزون',
+  nutriQuickAddCommonBtn: 'إضافة أساسيات سريعة',
+  nutriNoPantryYet: 'قائمة الأطعمة المتوفرة فارغة. أضف الأطعمة لديك الآن لتوليد جدول وجبات أسبوعي مخصص.',
+  nutriPlanNotesLabel: 'ملاحظات أو تفضيلات الجدول (اختياري)',
+  nutriPlanNotesPlaceholder: 'مثال: وجبات تحضير سريع خلال ١٥ دقيقة، تركيز عالٍ على البروتين',
+  nutriGeneratePlanBtn: 'إنشاء جدول وجبات الأسبوع (٧ أيام)',
+  nutriGeneratingPlan: 'جارٍ إعداد جدول الأسبوع الكامل...',
+  nutriSavedPlansTitle: 'جداول الوجبات الأسبوعية المحفوظة',
+  nutriNoPlansYet: 'لا توجد جداول أسبوعية محفوظة بعد. أضف مكونين على الأقل واضغط على «إنشاء جدول وجبات الأسبوع».',
+  nutriMealBreakfast: 'الإفطار',
+  nutriMealLunch: 'الغداء',
+  nutriMealDinner: 'العشاء',
+  nutriMealSnack: 'سناك',
+  nutriMealTypes: {
+    breakfast: 'الإفطار',
+    lunch: 'الغداء',
+    dinner: 'العشاء',
+    snack: 'سناك',
+  },
+  nutriPantryCategories: {
+    protein: 'بروتين',
+    carbs: 'نشويات وحبوب',
+    fats: 'دهون صحية',
+    produce: 'خضار وفواكه',
+    dairy: 'ألبان',
+    other: 'أخرى',
+  },
+  geminiErrorPrefix: 'تنبيه Gemini: ',
 
   measurementsTitle: 'الوزن وقياسات الجسم',
   measurementsSubtitle: 'سجّل الوزن ونسبة الدهون ومحيطات الجسم لمتابعة التطور على المدى الطويل.',

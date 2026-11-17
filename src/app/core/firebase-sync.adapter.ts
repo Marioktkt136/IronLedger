@@ -30,14 +30,21 @@ import {
 import {OperationType, getFirebaseClients, handleFirestoreError} from './firebase-client';
 import {computeUserStatsSummary, hashAccountEmail, roundTo} from './fitness-math';
 import {
+  AnatomyMuscleId,
   BLUEPRINT_LIMITS,
   BodyMeasurement,
   ExerciseDefinition,
+  ExerciseGuideRecord,
   FitnessGoal,
   LanguageCode,
+  MealLogEntry,
+  MealType,
+  PantryCategory,
+  PantryFoodItem,
   ProgressReport,
   ThemeMode,
   UserPreferences,
+  WeeklyMealPlan,
   WeightUnit,
   WorkoutRoutine,
   WorkoutSession,
@@ -65,10 +72,14 @@ export interface CloudSyncCallbacks {
     theme: ThemeMode;
   }) => void;
   onExercises: (list: ExerciseDefinition[]) => void;
+  onExerciseGuides: (list: ExerciseGuideRecord[]) => void;
   onRoutines: (list: WorkoutRoutine[]) => void;
   onWorkouts: (list: WorkoutSession[]) => void;
   onMeasurements: (list: BodyMeasurement[]) => void;
   onReports: (list: ProgressReport[]) => void;
+  onMealLogs: (list: MealLogEntry[]) => void;
+  onPantryItems: (list: PantryFoodItem[]) => void;
+  onMealPlans: (list: WeeklyMealPlan[]) => void;
 }
 
 function toUserSummary(user: User | null): AuthUserSummary | null {
@@ -556,6 +567,124 @@ export class FirebaseSyncAdapter {
         (error) => handleFirestoreError(error, OperationType.LIST, reportsPath, auth),
       ),
     );
+
+    const guidesPath = `users/${uid}/exerciseGuides`;
+    this.unsubCollections.push(
+      onSnapshot(
+        query(collection(db, guidesPath), where('ownerId', '==', uid)),
+        {includeMetadataChanges: true},
+        (snap) => {
+          callbacks.onSyncMeta(snap.metadata.hasPendingWrites, snap.metadata.fromCache);
+          for (const d of snap.docs) this.knownCloudIds.add(`exerciseGuides/${d.id}`);
+          callbacks.onExerciseGuides(
+            snap.docs.map((d) => {
+              const data = d.data();
+              return {
+                id: d.id,
+                exerciseId: String(data['exerciseId'] ?? d.id),
+                exerciseName: String(data['exerciseName'] ?? ''),
+                primaryMuscles: Array.isArray(data['primaryMuscles'])
+                  ? (data['primaryMuscles'] as AnatomyMuscleId[])
+                  : [],
+                secondaryMuscles: Array.isArray(data['secondaryMuscles'])
+                  ? (data['secondaryMuscles'] as AnatomyMuscleId[])
+                  : [],
+                recommendedMachines: Array.isArray(data['recommendedMachines'])
+                  ? data['recommendedMachines']
+                  : [],
+                howToUseSteps: Array.isArray(data['howToUseSteps']) ? data['howToUseSteps'].map(String) : [],
+                commonMistakes: Array.isArray(data['commonMistakes']) ? data['commonMistakes'].map(String) : [],
+                coachingSummary: String(data['coachingSummary'] ?? ''),
+              };
+            }),
+          );
+        },
+        (error) => handleFirestoreError(error, OperationType.LIST, guidesPath, auth),
+      ),
+    );
+
+    const mealLogsPath = `users/${uid}/mealLogs`;
+    this.unsubCollections.push(
+      onSnapshot(
+        query(collection(db, mealLogsPath), where('ownerId', '==', uid)),
+        {includeMetadataChanges: true},
+        (snap) => {
+          callbacks.onSyncMeta(snap.metadata.hasPendingWrites, snap.metadata.fromCache);
+          for (const d of snap.docs) this.knownCloudIds.add(`mealLogs/${d.id}`);
+          const list: MealLogEntry[] = snap.docs.map((d) => {
+            const data = d.data();
+            return {
+              id: d.id,
+              loggedDate: String(data['loggedDate'] ?? ''),
+              mealType: (data['mealType'] as MealType) ?? 'lunch',
+              title: String(data['title'] ?? ''),
+              sourceMode: (data['sourceMode'] as MealLogEntry['sourceMode']) ?? 'text',
+              totalCalories: Number(data['totalCalories'] ?? 0),
+              proteinG: Number(data['proteinG'] ?? 0),
+              carbsG: Number(data['carbsG'] ?? 0),
+              fatG: Number(data['fatG'] ?? 0),
+              fiberG: typeof data['fiberG'] === 'number' ? data['fiberG'] : undefined,
+              items: Array.isArray(data['items']) ? data['items'] : [],
+              nutritionNote: typeof data['nutritionNote'] === 'string' ? data['nutritionNote'] : undefined,
+            };
+          });
+          list.sort((a, b) => b.loggedDate.localeCompare(a.loggedDate));
+          callbacks.onMealLogs(list);
+        },
+        (error) => handleFirestoreError(error, OperationType.LIST, mealLogsPath, auth),
+      ),
+    );
+
+    const pantryPath = `users/${uid}/pantryItems`;
+    this.unsubCollections.push(
+      onSnapshot(
+        query(collection(db, pantryPath), where('ownerId', '==', uid)),
+        {includeMetadataChanges: true},
+        (snap) => {
+          callbacks.onSyncMeta(snap.metadata.hasPendingWrites, snap.metadata.fromCache);
+          for (const d of snap.docs) this.knownCloudIds.add(`pantryItems/${d.id}`);
+          callbacks.onPantryItems(
+            snap.docs.map((d) => {
+              const data = d.data();
+              return {
+                id: d.id,
+                name: String(data['name'] ?? ''),
+                category: (data['category'] as PantryCategory) ?? 'other',
+                quantityHint: typeof data['quantityHint'] === 'string' ? data['quantityHint'] : undefined,
+              };
+            }),
+          );
+        },
+        (error) => handleFirestoreError(error, OperationType.LIST, pantryPath, auth),
+      ),
+    );
+
+    const mealPlansPath = `users/${uid}/mealPlans`;
+    this.unsubCollections.push(
+      onSnapshot(
+        query(collection(db, mealPlansPath), where('ownerId', '==', uid)),
+        {includeMetadataChanges: true},
+        (snap) => {
+          callbacks.onSyncMeta(snap.metadata.hasPendingWrites, snap.metadata.fromCache);
+          for (const d of snap.docs) this.knownCloudIds.add(`mealPlans/${d.id}`);
+          callbacks.onMealPlans(
+            snap.docs.map((d) => {
+              const data = d.data();
+              return {
+                id: d.id,
+                title: String(data['title'] ?? ''),
+                goal: (data['goal'] as FitnessGoal) ?? 'hypertrophy',
+                dailyTargetCalories: Number(data['dailyTargetCalories'] ?? 2200),
+                language: data['language'] === 'ar' ? 'ar' : 'en',
+                notes: typeof data['notes'] === 'string' ? data['notes'] : undefined,
+                days: Array.isArray(data['days']) ? data['days'] : [],
+              };
+            }),
+          );
+        },
+        (error) => handleFirestoreError(error, OperationType.LIST, mealPlansPath, auth),
+      ),
+    );
   }
 
   async syncPreferences(uid: string, prefs: UserPreferences): Promise<void> {
@@ -723,9 +852,78 @@ export class FirebaseSyncAdapter {
     }
   }
 
+  async upsertExerciseGuide(uid: string, guide: ExerciseGuideRecord): Promise<void> {
+    const path = `users/${uid}/exerciseGuides/${guide.id}`;
+    const isUpdate = this.knownCloudIds.has(`exerciseGuides/${guide.id}`);
+    try {
+      await setDoc(
+        doc(this.clients.db, path),
+        this.toFirestoreExerciseGuide(uid, guide, isUpdate),
+        isUpdate ? {merge: true} : {},
+      );
+      this.knownCloudIds.add(`exerciseGuides/${guide.id}`);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path, this.clients.auth);
+    }
+  }
+
+  async upsertMealLog(uid: string, meal: MealLogEntry): Promise<void> {
+    const path = `users/${uid}/mealLogs/${meal.id}`;
+    const isUpdate = this.knownCloudIds.has(`mealLogs/${meal.id}`);
+    try {
+      await setDoc(
+        doc(this.clients.db, path),
+        this.toFirestoreMealLog(uid, meal, isUpdate),
+        isUpdate ? {merge: true} : {},
+      );
+      this.knownCloudIds.add(`mealLogs/${meal.id}`);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path, this.clients.auth);
+    }
+  }
+
+  async upsertPantryItem(uid: string, item: PantryFoodItem): Promise<void> {
+    const path = `users/${uid}/pantryItems/${item.id}`;
+    const isUpdate = this.knownCloudIds.has(`pantryItems/${item.id}`);
+    try {
+      await setDoc(
+        doc(this.clients.db, path),
+        this.toFirestorePantryItem(uid, item, isUpdate),
+        isUpdate ? {merge: true} : {},
+      );
+      this.knownCloudIds.add(`pantryItems/${item.id}`);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path, this.clients.auth);
+    }
+  }
+
+  async upsertMealPlan(uid: string, plan: WeeklyMealPlan): Promise<void> {
+    const path = `users/${uid}/mealPlans/${plan.id}`;
+    const isUpdate = this.knownCloudIds.has(`mealPlans/${plan.id}`);
+    try {
+      await setDoc(
+        doc(this.clients.db, path),
+        this.toFirestoreMealPlan(uid, plan, isUpdate),
+        isUpdate ? {merge: true} : {},
+      );
+      this.knownCloudIds.add(`mealPlans/${plan.id}`);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path, this.clients.auth);
+    }
+  }
+
   async deleteSubdoc(
     uid: string,
-    col: 'exercises' | 'routines' | 'workouts' | 'measurements' | 'progressReports',
+    col:
+      | 'exercises'
+      | 'exerciseGuides'
+      | 'routines'
+      | 'workouts'
+      | 'measurements'
+      | 'progressReports'
+      | 'mealLogs'
+      | 'pantryItems'
+      | 'mealPlans',
     docId: string,
   ): Promise<void> {
     const path = `users/${uid}/${col}/${docId}`;
@@ -741,7 +939,17 @@ export class FirebaseSyncAdapter {
     const {db, auth} = this.clients;
     try {
       const batch = writeBatch(db);
-      for (const colName of ['exercises', 'routines', 'workouts', 'measurements', 'progressReports'] as const) {
+      for (const colName of [
+        'exercises',
+        'exerciseGuides',
+        'routines',
+        'workouts',
+        'measurements',
+        'progressReports',
+        'mealLogs',
+        'pantryItems',
+        'mealPlans',
+      ] as const) {
         const snap = await getDocs(query(collection(db, 'users', uid, colName), where('ownerId', '==', uid)));
         for (const d of snap.docs) {
           batch.delete(d.ref);
@@ -930,6 +1138,104 @@ export class FirebaseSyncAdapter {
     };
     if (!isUpdate) payload['createdAt'] = serverTimestamp();
     if (rp.notes) payload['notes'] = rp.notes.slice(0, BLUEPRINT_LIMITS.maxLongNotesLength);
+    else if (isUpdate) payload['notes'] = deleteField();
+    return payload;
+  }
+
+  private toFirestoreExerciseGuide(
+    uid: string,
+    guide: ExerciseGuideRecord,
+    isUpdate = false,
+  ): Record<string, unknown> {
+    const name = guide.exerciseName.trim().slice(0, BLUEPRINT_LIMITS.maxTitleLength);
+    const payload: Record<string, unknown> = {
+      ownerId: uid,
+      exerciseId: guide.exerciseId.slice(0, BLUEPRINT_LIMITS.maxIdLength),
+      exerciseName: name.length >= 2 ? name : 'Exercise',
+      primaryMuscles: guide.primaryMuscles.slice(0, 8),
+      secondaryMuscles: guide.secondaryMuscles.slice(0, 8),
+      recommendedMachines: guide.recommendedMachines.slice(0, 6).map((m) => ({
+        machineName: String(m.machineName ?? '').slice(0, 120),
+        setupCue: String(m.setupCue ?? '').slice(0, 300),
+        targetBenefit: String(m.targetBenefit ?? '').slice(0, 300),
+      })),
+      howToUseSteps: guide.howToUseSteps.slice(0, 10).map((s) => String(s).slice(0, 300)),
+      commonMistakes: guide.commonMistakes.slice(0, 8).map((s) => String(s).slice(0, 300)),
+      coachingSummary: String(guide.coachingSummary ?? '').slice(0, 1200),
+      updatedAt: serverTimestamp(),
+    };
+    if (!isUpdate) payload['createdAt'] = serverTimestamp();
+    return payload;
+  }
+
+  private toFirestoreMealLog(uid: string, meal: MealLogEntry, isUpdate = false): Record<string, unknown> {
+    const title = meal.title.trim().slice(0, BLUEPRINT_LIMITS.maxTitleLength);
+    const payload: Record<string, unknown> = {
+      ownerId: uid,
+      loggedDate: meal.loggedDate.slice(0, 10),
+      mealType: meal.mealType,
+      title: title.length >= 1 ? title : 'Meal',
+      sourceMode: meal.sourceMode,
+      totalCalories: Math.min(10000, Math.max(0, Math.round(meal.totalCalories || 0))),
+      proteinG: Math.min(1000, Math.max(0, roundTo(meal.proteinG || 0, 1))),
+      carbsG: Math.min(1500, Math.max(0, roundTo(meal.carbsG || 0, 1))),
+      fatG: Math.min(500, Math.max(0, roundTo(meal.fatG || 0, 1))),
+      items: meal.items.slice(0, 20).map((it) => ({
+        name: String(it.name ?? '').slice(0, 100),
+        portion: String(it.portion ?? '').slice(0, 80),
+        calories: Math.max(0, Math.round(Number(it.calories) || 0)),
+        proteinG: Math.max(0, roundTo(Number(it.proteinG) || 0, 1)),
+        carbsG: Math.max(0, roundTo(Number(it.carbsG) || 0, 1)),
+        fatG: Math.max(0, roundTo(Number(it.fatG) || 0, 1)),
+      })),
+      updatedAt: serverTimestamp(),
+    };
+    if (!isUpdate) payload['createdAt'] = serverTimestamp();
+    if (meal.fiberG !== undefined && Number.isFinite(meal.fiberG)) {
+      payload['fiberG'] = Math.min(300, Math.max(0, roundTo(meal.fiberG, 1)));
+    } else if (isUpdate) {
+      payload['fiberG'] = deleteField();
+    }
+    if (meal.nutritionNote) payload['nutritionNote'] = meal.nutritionNote.slice(0, 600);
+    else if (isUpdate) payload['nutritionNote'] = deleteField();
+    return payload;
+  }
+
+  private toFirestorePantryItem(uid: string, item: PantryFoodItem, isUpdate = false): Record<string, unknown> {
+    const name = item.name.trim().slice(0, BLUEPRINT_LIMITS.maxNameLength);
+    const payload: Record<string, unknown> = {
+      ownerId: uid,
+      name: name.length >= 1 ? name : 'Food',
+      category: item.category,
+      updatedAt: serverTimestamp(),
+    };
+    if (!isUpdate) payload['createdAt'] = serverTimestamp();
+    if (item.quantityHint) payload['quantityHint'] = item.quantityHint.slice(0, 60);
+    else if (isUpdate) payload['quantityHint'] = deleteField();
+    return payload;
+  }
+
+  private toFirestoreMealPlan(uid: string, plan: WeeklyMealPlan, isUpdate = false): Record<string, unknown> {
+    const title = plan.title.trim().slice(0, BLUEPRINT_LIMITS.maxTitleLength);
+    const payload: Record<string, unknown> = {
+      ownerId: uid,
+      title: title.length >= 2 ? title : 'Weekly Meal Plan',
+      goal: plan.goal,
+      dailyTargetCalories: Math.min(8000, Math.max(800, Math.round(plan.dailyTargetCalories || 2200))),
+      language: plan.language,
+      days: plan.days.slice(0, 7).map((d) => ({
+        dayLabel: String(d.dayLabel ?? '').slice(0, 60),
+        totalCalories: Math.max(0, Math.round(Number(d.totalCalories) || 0)),
+        proteinG: Math.max(0, roundTo(Number(d.proteinG) || 0, 1)),
+        breakfast: String(d.breakfast ?? '').slice(0, 350),
+        lunch: String(d.lunch ?? '').slice(0, 350),
+        dinner: String(d.dinner ?? '').slice(0, 350),
+        snack: String(d.snack ?? '').slice(0, 300),
+      })),
+      updatedAt: serverTimestamp(),
+    };
+    if (!isUpdate) payload['createdAt'] = serverTimestamp();
+    if (plan.notes) payload['notes'] = plan.notes.slice(0, 1000);
     else if (isUpdate) payload['notes'] = deleteField();
     return payload;
   }

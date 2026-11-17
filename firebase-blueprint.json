@@ -509,6 +509,238 @@
         "createdAt",
         "updatedAt"
       ]
+    },
+    "ExerciseGuideRecord": {
+      "title": "ExerciseGuideRecord",
+      "description": "Saved human anatomy muscle targets, recommended gym machines, and Gemini setup guide for an exercise.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "exerciseId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "exerciseName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 120
+        },
+        "primaryMuscles": {
+          "type": "array",
+          "description": "Bounded list (max 8) of targeted human anatomy muscle IDs."
+        },
+        "secondaryMuscles": {
+          "type": "array",
+          "description": "Bounded list (max 8) of secondary muscle IDs."
+        },
+        "recommendedMachines": {
+          "type": "array",
+          "description": "Bounded list (max 6) of recommended gym machine setup objects."
+        },
+        "howToUseSteps": {
+          "type": "array",
+          "description": "Bounded list (max 10) of setup & execution steps."
+        },
+        "commonMistakes": {
+          "type": "array",
+          "description": "Bounded list (max 8) of mistakes to avoid."
+        },
+        "coachingSummary": {
+          "type": "string",
+          "maxLength": 1200
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "ownerId",
+        "exerciseId",
+        "exerciseName",
+        "primaryMuscles",
+        "secondaryMuscles",
+        "recommendedMachines",
+        "howToUseSteps",
+        "commonMistakes",
+        "coachingSummary",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "MealLogEntry": {
+      "title": "MealLogEntry",
+      "description": "Daily food intake entry with calculated calories and macronutrients (without raw binary image payloads).",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "loggedDate": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "mealType": {
+          "type": "string",
+          "enum": ["breakfast", "lunch", "dinner", "snack"],
+          "maxLength": 24
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "sourceMode": {
+          "type": "string",
+          "enum": ["text", "image", "manual"],
+          "maxLength": 16
+        },
+        "totalCalories": {
+          "type": "number"
+        },
+        "proteinG": {
+          "type": "number"
+        },
+        "carbsG": {
+          "type": "number"
+        },
+        "fatG": {
+          "type": "number"
+        },
+        "fiberG": {
+          "type": "number"
+        },
+        "items": {
+          "type": "array",
+          "description": "Bounded list (max 20) of parsed food items."
+        },
+        "nutritionNote": {
+          "type": "string",
+          "maxLength": 600
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "ownerId",
+        "loggedDate",
+        "mealType",
+        "title",
+        "sourceMode",
+        "totalCalories",
+        "proteinG",
+        "carbsG",
+        "fatG",
+        "items",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "PantryFoodItem": {
+      "title": "PantryFoodItem",
+      "description": "Food item currently available in the user's kitchen/pantry for weekly meal planning.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "category": {
+          "type": "string",
+          "enum": ["protein", "carbs", "fats", "produce", "dairy", "other"],
+          "maxLength": 24
+        },
+        "quantityHint": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerId", "name", "category", "createdAt", "updatedAt"]
+    },
+    "WeeklyMealPlan": {
+      "title": "WeeklyMealPlan",
+      "description": "Gemini-generated 7-day weekly meal plan tailored to the user's available foods and daily calorie target.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 120
+        },
+        "goal": {
+          "type": "string",
+          "enum": ["strength", "hypertrophy", "fat_loss", "endurance", "general"],
+          "maxLength": 32
+        },
+        "dailyTargetCalories": {
+          "type": "number"
+        },
+        "language": {
+          "type": "string",
+          "enum": ["en", "ar"],
+          "maxLength": 8
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "days": {
+          "type": "array",
+          "description": "Bounded list (exactly 1 to 7) of structured day meal plans."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerId", "title", "goal", "dailyTargetCalories", "language", "days", "createdAt", "updatedAt"]
     }
   },
   "firestore": {
@@ -540,6 +772,10 @@
       "schema": { "$ref": "#/entities/CustomExercise" },
       "description": "Custom exercises authored by the user."
     },
+    "/users/{userId}/exerciseGuides/{guideId}": {
+      "schema": { "$ref": "#/entities/ExerciseGuideRecord" },
+      "description": "Saved human muscle target & gym machine guides generated for exercises."
+    },
     "/users/{userId}/routines/{routineId}": {
       "schema": { "$ref": "#/entities/WorkoutRoutine" },
       "description": "Personalized workout routines."
@@ -555,6 +791,18 @@
     "/users/{userId}/progressReports/{reportId}": {
       "schema": { "$ref": "#/entities/ProgressReport" },
       "description": "Saved progress report snapshots."
+    },
+    "/users/{userId}/mealLogs/{mealId}": {
+      "schema": { "$ref": "#/entities/MealLogEntry" },
+      "description": "Daily logged meals and calculated calories/macros."
+    },
+    "/users/{userId}/pantryItems/{itemId}": {
+      "schema": { "$ref": "#/entities/PantryFoodItem" },
+      "description": "Available foods in the user's pantry."
+    },
+    "/users/{userId}/mealPlans/{planId}": {
+      "schema": { "$ref": "#/entities/WeeklyMealPlan" },
+      "description": "Generated 7-day weekly meal plans based on pantry items."
     }
   }
 }

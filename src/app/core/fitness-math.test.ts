@@ -2,9 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   calculateBmi,
+  calculateDailyCalorieTarget,
   calculateOneRepMaxKg,
   calculateSetVolumeKg,
   calculateWorkoutVolumeKg,
+  computeDailyNutritionSummary,
   computeMuscleVolumeBreakdown,
   computePersonalRecords,
   computeProgressReportSummary,
@@ -22,7 +24,7 @@ import {
   validateMeasurementInput,
   validateRoutineInput,
 } from './fitness-math';
-import type {BodyMeasurement, WorkoutSession} from './models';
+import type {BodyMeasurement, MealLogEntry, WorkoutSession} from './models';
 
 test('calculateSetVolumeKg and calculateWorkoutVolumeKg count only completed sets', () => {
   assert.equal(calculateSetVolumeKg(80, 10), 800);
@@ -230,6 +232,64 @@ test('computeUserStatsSummary aggregates workouts and latest measurement cleanly
   assert.equal(summary.totalCompletedSets, 22);
   assert.equal(summary.latestWeightKg, 79.2);
   assert.equal(summary.latestMeasurementDate, '2026-11-15');
+});
+
+test('calculateDailyCalorieTarget and computeDailyNutritionSummary aggregate daily meals accurately', () => {
+  const cutTarget = calculateDailyCalorieTarget({weightKg: 80, heightCm: 178, goal: 'fat_loss'});
+  const bulkTarget = calculateDailyCalorieTarget({weightKg: 80, heightCm: 178, goal: 'hypertrophy'});
+  assert.ok(bulkTarget.calories > cutTarget.calories);
+  assert.ok(cutTarget.proteinG >= 150);
+
+  const logs: MealLogEntry[] = [
+    {
+      id: 'ml_1',
+      loggedDate: '2026-11-16',
+      mealType: 'breakfast',
+      title: 'Eggs & Oats',
+      sourceMode: 'text',
+      totalCalories: 520,
+      proteinG: 32,
+      carbsG: 54,
+      fatG: 18,
+      fiberG: 6,
+      items: [],
+    },
+    {
+      id: 'ml_2',
+      loggedDate: '2026-11-16',
+      mealType: 'lunch',
+      title: 'Grilled Chicken Rice',
+      sourceMode: 'image',
+      totalCalories: 680,
+      proteinG: 52,
+      carbsG: 72,
+      fatG: 14,
+      fiberG: 5,
+      items: [],
+    },
+    {
+      id: 'ml_3',
+      loggedDate: '2026-11-15',
+      mealType: 'dinner',
+      title: 'Yesterday Salmon',
+      sourceMode: 'text',
+      totalCalories: 600,
+      proteinG: 42,
+      carbsG: 30,
+      fatG: 28,
+      items: [],
+    },
+  ];
+
+  const todaySummary = computeDailyNutritionSummary(logs, '2026-11-16', 2400);
+  assert.equal(todaySummary.mealsCount, 2);
+  assert.equal(todaySummary.consumedCalories, 1200);
+  assert.equal(todaySummary.remainingCalories, 1200);
+  assert.equal(todaySummary.proteinG, 84);
+  assert.equal(todaySummary.carbsG, 126);
+  assert.equal(todaySummary.fatG, 32);
+  assert.equal(todaySummary.fiberG, 11);
+  assert.equal(todaySummary.caloriePct, 50);
 });
 
 

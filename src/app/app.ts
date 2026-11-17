@@ -10,6 +10,7 @@ import {ThemeService} from './core/theme.service';
 import {DashboardComponent} from './features/dashboard/dashboard.component';
 import {ExercisesComponent} from './features/exercises/exercises.component';
 import {MeasurementsComponent} from './features/measurements/measurements.component';
+import {NutritionComponent} from './features/nutrition/nutrition.component';
 import {RoutinesComponent} from './features/routines/routines.component';
 import {WorkoutsComponent} from './features/workouts/workouts.component';
 
@@ -21,6 +22,7 @@ import {WorkoutsComponent} from './features/workouts/workouts.component';
     WorkoutsComponent,
     RoutinesComponent,
     ExercisesComponent,
+    NutritionComponent,
     MeasurementsComponent,
     AccountModalComponent,
     BodySetupModalComponent,
@@ -45,6 +47,7 @@ export class App {
       {key: 'workouts', icon: 'fitness_center', label: t.navWorkouts},
       {key: 'routines', icon: 'view_list', label: t.navRoutines},
       {key: 'exercises', icon: 'sports_gymnastics', label: t.navExercises},
+      {key: 'nutrition', icon: 'restaurant', label: t.navNutrition},
       {key: 'measurements', icon: 'straighten', label: t.navMeasurements},
     ];
   });
@@ -81,6 +84,7 @@ export class App {
         tab === 'workouts' ||
         tab === 'routines' ||
         tab === 'exercises' ||
+        tab === 'nutrition' ||
         tab === 'measurements'
       ) {
         this.activeTab.set(tab);

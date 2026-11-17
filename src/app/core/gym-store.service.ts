@@ -2,6 +2,7 @@ import {isPlatformBrowser} from '@angular/common';
 import {Injectable, PLATFORM_ID, computed, inject, signal} from '@angular/core';
 import type {AuthUserSummary, CloudSyncCallbacks, FirebaseSyncAdapter} from './firebase-sync.adapter';
 import {
+  calculateDailyCalorieTarget,
   calculateWorkoutVolumeKg,
   computeMuscleVolumeBreakdown,
   computePersonalRecords,
@@ -9,6 +10,7 @@ import {
   computeSessionsInLast7Days,
   countCompletedSets,
   createCleanAccountSnapshot,
+  DailyNutritionTarget,
   getScopedStorageKeys,
 } from './fitness-math';
 import {I18nService} from './i18n.service';
@@ -17,14 +19,18 @@ import {
   BLUEPRINT_LIMITS,
   BodyMeasurement,
   ExerciseDefinition,
+  ExerciseGuideRecord,
   FitnessGoal,
   LanguageCode,
+  MealLogEntry,
   OfflineMutation,
+  PantryFoodItem,
   ProgressReport,
   SyncStatus,
   ThemeMode,
   TimeframeKey,
   UserPreferences,
+  WeeklyMealPlan,
   WorkoutEntry,
   WorkoutRoutine,
   WorkoutSession,
@@ -44,10 +50,14 @@ const DEVICE_CLIENT_ID_KEY = 'ironledger_client_id_v1';
 interface LocalStoreSnapshot {
   preferences: UserPreferences;
   customExercises: ExerciseDefinition[];
+  exerciseGuides: ExerciseGuideRecord[];
   routines: WorkoutRoutine[];
   workouts: WorkoutSession[];
   measurements: BodyMeasurement[];
   progressReports: ProgressReport[];
+  mealLogs: MealLogEntry[];
+  pantryItems: PantryFoodItem[];
+  mealPlans: WeeklyMealPlan[];
 }
 
 function makeDocId(prefix: string): string {
@@ -102,10 +112,14 @@ export class GymStoreService {
     targetWeightKg: undefined,
   });
   readonly customExercises = signal<ExerciseDefinition[]>([]);
+  readonly exerciseGuides = signal<ExerciseGuideRecord[]>([]);
   readonly routines = signal<WorkoutRoutine[]>([]);
   readonly workouts = signal<WorkoutSession[]>([]);
   readonly measurements = signal<BodyMeasurement[]>([]);
   readonly progressReports = signal<ProgressReport[]>([]);
+  readonly mealLogs = signal<MealLogEntry[]>([]);
+  readonly pantryItems = signal<PantryFoodItem[]>([]);
+  readonly mealPlans = signal<WeeklyMealPlan[]>([]);
   readonly activeWorkout = signal<ActiveWorkoutDraft | null>(null);
 
   // Onboarding Flag: prompt first for height (cm) & weight (kg) once logged in and data is empty
@@ -146,6 +160,18 @@ export class GymStoreService {
   readonly weeklySessionsCount = computed(() => computeSessionsInLast7Days(this.workouts()));
   readonly personalRecords = computed(() => computePersonalRecords(this.workouts()));
   readonly muscleBreakdown = computed(() => computeMuscleVolumeBreakdown(this.workouts()));
+
+  readonly dailyNutritionTarget = computed<DailyNutritionTarget>(() =>
+    calculateDailyCalorieTarget({
+      weightKg: this.latestMeasurement()?.weightKg ?? this.preferences().targetWeightKg,
+      heightCm: this.preferences().heightCm,
+      goal: this.preferences().goal,
+    }),
+  );
+
+  readonly sortedMealLogs = computed<MealLogEntry[]>(() => {
+    return [...this.mealLogs()].sort((a, b) => b.loggedDate.localeCompare(a.loggedDate));
+  });
 
   readonly syncStatus = computed<SyncStatus>(() => ({
     isOnline: this.isOnline(),
@@ -203,10 +229,14 @@ export class GymStoreService {
     const clean = createCleanAccountSnapshot(this.i18n.lang(), this.themeService.theme());
     this.preferences.set(clean.preferences);
     this.customExercises.set([]);
+    this.exerciseGuides.set([]);
     this.routines.set([]);
     this.workouts.set([]);
     this.measurements.set([]);
     this.progressReports.set([]);
+    this.mealLogs.set([]);
+    this.pantryItems.set([]);
+    this.mealPlans.set([]);
     this.activeWorkout.set(null);
     this.pendingQueue.set([]);
     this.hasPendingCloudWrites.set(false);
@@ -324,6 +354,10 @@ export class GymStoreService {
           this.customExercises.set(list);
           this.persistLocalState();
         },
+        onExerciseGuides: (list: ExerciseGuideRecord[]) => {
+          this.exerciseGuides.set(list);
+          this.persistLocalState();
+        },
         onRoutines: (list: WorkoutRoutine[]) => {
           this.routines.set(list);
           this.persistLocalState();
@@ -338,6 +372,18 @@ export class GymStoreService {
         },
         onReports: (list: ProgressReport[]) => {
           this.progressReports.set(list);
+          this.persistLocalState();
+        },
+        onMealLogs: (list: MealLogEntry[]) => {
+          this.mealLogs.set(list);
+          this.persistLocalState();
+        },
+        onPantryItems: (list: PantryFoodItem[]) => {
+          this.pantryItems.set(list);
+          this.persistLocalState();
+        },
+        onMealPlans: (list: WeeklyMealPlan[]) => {
+          this.mealPlans.set(list);
           this.persistLocalState();
         },
       };
@@ -397,10 +443,14 @@ export class GymStoreService {
           this.themeService.setTheme(parsed.preferences.theme);
         }
         if (Array.isArray(parsed.customExercises)) this.customExercises.set(parsed.customExercises);
+        if (Array.isArray(parsed.exerciseGuides)) this.exerciseGuides.set(parsed.exerciseGuides);
         if (Array.isArray(parsed.routines)) this.routines.set(parsed.routines);
         if (Array.isArray(parsed.workouts)) this.workouts.set(parsed.workouts);
         if (Array.isArray(parsed.measurements)) this.measurements.set(parsed.measurements);
         if (Array.isArray(parsed.progressReports)) this.progressReports.set(parsed.progressReports);
+        if (Array.isArray(parsed.mealLogs)) this.mealLogs.set(parsed.mealLogs);
+        if (Array.isArray(parsed.pantryItems)) this.pantryItems.set(parsed.pantryItems);
+        if (Array.isArray(parsed.mealPlans)) this.mealPlans.set(parsed.mealPlans);
       }
 
       const rawQueue = localStorage.getItem(keys.queueKey);
@@ -423,10 +473,14 @@ export class GymStoreService {
       const snapshot: LocalStoreSnapshot = {
         preferences: this.preferences(),
         customExercises: this.customExercises(),
+        exerciseGuides: this.exerciseGuides(),
         routines: this.routines(),
         workouts: this.workouts(),
         measurements: this.measurements(),
         progressReports: this.progressReports(),
+        mealLogs: this.mealLogs(),
+        pantryItems: this.pantryItems(),
+        mealPlans: this.mealPlans(),
       };
       localStorage.setItem(keys.stateKey, JSON.stringify(snapshot));
       localStorage.setItem(keys.queueKey, JSON.stringify(this.pendingQueue()));
@@ -667,6 +721,9 @@ export class GymStoreService {
       } else if (mut.collection === 'exercises') {
         const ex = this.customExercises().find((x) => x.id === mut.docId);
         if (ex) await this.adapter.upsertExercise(uid, ex);
+      } else if (mut.collection === 'exerciseGuides') {
+        const gd = this.exerciseGuides().find((x) => x.id === mut.docId);
+        if (gd) await this.adapter.upsertExerciseGuide(uid, gd);
       } else if (mut.collection === 'routines') {
         const rt = this.routines().find((x) => x.id === mut.docId);
         if (rt) await this.adapter.upsertRoutine(uid, rt);
@@ -679,6 +736,15 @@ export class GymStoreService {
       } else if (mut.collection === 'progressReports') {
         const rp = this.progressReports().find((x) => x.id === mut.docId);
         if (rp) await this.adapter.upsertReport(uid, rp);
+      } else if (mut.collection === 'mealLogs') {
+        const ml = this.mealLogs().find((x) => x.id === mut.docId);
+        if (ml) await this.adapter.upsertMealLog(uid, ml);
+      } else if (mut.collection === 'pantryItems') {
+        const pi = this.pantryItems().find((x) => x.id === mut.docId);
+        if (pi) await this.adapter.upsertPantryItem(uid, pi);
+      } else if (mut.collection === 'mealPlans') {
+        const mp = this.mealPlans().find((x) => x.id === mut.docId);
+        if (mp) await this.adapter.upsertMealPlan(uid, mp);
       }
       this.dequeueMutation(mut.collection, mut.docId);
     }
@@ -1073,6 +1139,146 @@ export class GymStoreService {
     });
   }
 
+  // Exercise Muscle & Machine Guides
+  async saveExerciseGuide(guide: ExerciseGuideRecord): Promise<ExerciseGuideRecord> {
+    const id = guide.exerciseId.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, BLUEPRINT_LIMITS.maxIdLength) || makeDocId('gd');
+    const saved: ExerciseGuideRecord = {
+      ...guide,
+      id,
+      exerciseId: guide.exerciseId,
+    };
+    const exists = this.exerciseGuides().some((g) => g.id === id);
+    this.exerciseGuides.set(
+      exists ? this.exerciseGuides().map((g) => (g.id === id ? saved : g)) : [saved, ...this.exerciseGuides()],
+    );
+    this.persistLocalState();
+
+    const uid = this.user()?.uid;
+    if (uid && this.adapter) {
+      const adapter = this.adapter;
+      if (!this.isOnline() || this.offlineModeEnabled()) {
+        this.enqueueMutation('exerciseGuides', 'upsert', saved.id);
+      }
+      await this.dispatchCloudWrite(() => adapter.upsertExerciseGuide(uid, saved));
+    }
+    return saved;
+  }
+
+  // Nutrition: Daily Meal Logs, Pantry Foods & 7-Day Weekly Meal Plans
+  async saveMealLog(input: Omit<MealLogEntry, 'id'> & {id?: string}): Promise<MealLogEntry> {
+    const id = input.id ?? makeDocId('ml');
+    const saved: MealLogEntry = {
+      ...input,
+      id,
+      title: input.title.trim().slice(0, BLUEPRINT_LIMITS.maxTitleLength),
+      nutritionNote: clampString(input.nutritionNote, 600),
+    };
+    const exists = this.mealLogs().some((m) => m.id === id);
+    this.mealLogs.set(
+      exists ? this.mealLogs().map((m) => (m.id === id ? saved : m)) : [saved, ...this.mealLogs()],
+    );
+    this.persistLocalState();
+
+    const uid = this.user()?.uid;
+    if (uid && this.adapter) {
+      const adapter = this.adapter;
+      if (!this.isOnline() || this.offlineModeEnabled()) {
+        this.enqueueMutation('mealLogs', 'upsert', saved.id);
+      }
+      await this.dispatchCloudWrite(() => adapter.upsertMealLog(uid, saved));
+    }
+    return saved;
+  }
+
+  async deleteMealLog(mealId: string): Promise<void> {
+    this.mealLogs.set(this.mealLogs().filter((m) => m.id !== mealId));
+    this.persistLocalState();
+
+    const uid = this.user()?.uid;
+    if (uid && this.adapter) {
+      const adapter = this.adapter;
+      if (!this.isOnline() || this.offlineModeEnabled()) {
+        this.enqueueMutation('mealLogs', 'delete', mealId);
+      }
+      await this.dispatchCloudWrite(() => adapter.deleteSubdoc(uid, 'mealLogs', mealId));
+    }
+  }
+
+  async addPantryItem(input: Omit<PantryFoodItem, 'id'>): Promise<PantryFoodItem> {
+    const created: PantryFoodItem = {
+      id: makeDocId('pi'),
+      name: input.name.trim().slice(0, BLUEPRINT_LIMITS.maxNameLength),
+      category: input.category,
+      quantityHint: clampString(input.quantityHint, 60),
+    };
+    this.pantryItems.set([created, ...this.pantryItems()]);
+    this.persistLocalState();
+
+    const uid = this.user()?.uid;
+    if (uid && this.adapter) {
+      const adapter = this.adapter;
+      if (!this.isOnline() || this.offlineModeEnabled()) {
+        this.enqueueMutation('pantryItems', 'upsert', created.id);
+      }
+      await this.dispatchCloudWrite(() => adapter.upsertPantryItem(uid, created));
+    }
+    return created;
+  }
+
+  async deletePantryItem(itemId: string): Promise<void> {
+    this.pantryItems.set(this.pantryItems().filter((p) => p.id !== itemId));
+    this.persistLocalState();
+
+    const uid = this.user()?.uid;
+    if (uid && this.adapter) {
+      const adapter = this.adapter;
+      if (!this.isOnline() || this.offlineModeEnabled()) {
+        this.enqueueMutation('pantryItems', 'delete', itemId);
+      }
+      await this.dispatchCloudWrite(() => adapter.deleteSubdoc(uid, 'pantryItems', itemId));
+    }
+  }
+
+  async saveMealPlan(input: Omit<WeeklyMealPlan, 'id'> & {id?: string}): Promise<WeeklyMealPlan> {
+    const id = input.id ?? makeDocId('mp');
+    const saved: WeeklyMealPlan = {
+      ...input,
+      id,
+      title: input.title.trim().slice(0, BLUEPRINT_LIMITS.maxTitleLength),
+      notes: clampString(input.notes, 1000),
+      days: input.days.slice(0, 7),
+    };
+    const exists = this.mealPlans().some((p) => p.id === id);
+    this.mealPlans.set(
+      exists ? this.mealPlans().map((p) => (p.id === id ? saved : p)) : [saved, ...this.mealPlans()],
+    );
+    this.persistLocalState();
+
+    const uid = this.user()?.uid;
+    if (uid && this.adapter) {
+      const adapter = this.adapter;
+      if (!this.isOnline() || this.offlineModeEnabled()) {
+        this.enqueueMutation('mealPlans', 'upsert', saved.id);
+      }
+      await this.dispatchCloudWrite(() => adapter.upsertMealPlan(uid, saved));
+    }
+    return saved;
+  }
+
+  async deleteMealPlan(planId: string): Promise<void> {
+    this.mealPlans.set(this.mealPlans().filter((p) => p.id !== planId));
+    this.persistLocalState();
+
+    const uid = this.user()?.uid;
+    if (uid && this.adapter) {
+      const adapter = this.adapter;
+      if (!this.isOnline() || this.offlineModeEnabled()) {
+        this.enqueueMutation('mealPlans', 'delete', planId);
+      }
+      await this.dispatchCloudWrite(() => adapter.deleteSubdoc(uid, 'mealPlans', planId));
+    }
+  }
+
   async resetAllData(): Promise<void> {
     const nextPrefs: UserPreferences = {
       goal: this.preferences().goal,
@@ -1085,10 +1291,14 @@ export class GymStoreService {
 
     this.preferences.set(nextPrefs);
     this.customExercises.set([]);
+    this.exerciseGuides.set([]);
     this.routines.set([]);
     this.workouts.set([]);
     this.measurements.set([]);
     this.progressReports.set([]);
+    this.mealLogs.set([]);
+    this.pantryItems.set([]);
+    this.mealPlans.set([]);
     this.activeWorkout.set(null);
     this.pendingQueue.set([]);
     this.skipRestTimer();
@@ -1108,10 +1318,14 @@ export class GymStoreService {
         exportedAt: new Date().toISOString(),
         preferences: this.preferences(),
         customExercises: this.customExercises(),
+        exerciseGuides: this.exerciseGuides(),
         routines: this.routines(),
         workouts: this.workouts(),
         measurements: this.measurements(),
         progressReports: this.progressReports(),
+        mealLogs: this.mealLogs(),
+        pantryItems: this.pantryItems(),
+        mealPlans: this.mealPlans(),
       },
       null,
       2,
